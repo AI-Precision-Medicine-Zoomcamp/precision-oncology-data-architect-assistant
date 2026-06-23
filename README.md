@@ -1,122 +1,154 @@
 # Precision Oncology Data Architect Assistant
 
-A retrieval-augmented generation (RAG) foundation for converting oncology
-FHIR data into searchable clinical context. The project currently focuses on
-FHIR bundle parsing, oncology-aware text extraction, document chunking,
-embeddings, vector storage, and retrieval.
+A Zoomcamp capstone project for turning synthetic oncology FHIR R4 bundles into
+searchable evidence and citation-grounded answers.
 
-> **Project status:** early development. The core modules under `src/` are
-> implemented, but the API, Streamlit interface, ingestion CLI, evaluation
-> workflow, and automated tests are still placeholders.
+> **Migration status:** the repository scaffold is being integrated with a
+> separate local core implementation. The core contains FHIR parsing, chunking,
+> embedding, ChromaDB, retrieval, prompt loading, and multi-provider LLM
+> adapters. API, UI, evaluation execution, monitoring, and deployment remain
+> integration work until their pull requests are merged and verified.
 
-## Current capabilities
+## Intended users
 
-- Parse FHIR R4 bundles into structured oncology-focused text.
-- Highlight NSCLC diagnoses and EGFR-related observations.
-- Split parsed documents with recursive or sentence-aware chunking.
-- Generate local sentence-transformer or OpenAI embeddings.
-- Store and query embeddings with persistent ChromaDB storage.
-- Re-rank vector search results with lightweight keyword matching.
-- Configure multiple LLM providers: OpenAI, Anthropic, Ollama, Azure OpenAI,
-  and NVIDIA NIM.
-- Load reusable oncology prompts from YAML.
+- Healthcare data architects working with FHIR, mCODE, and genomics data
+- Engineers prototyping oncology retrieval-augmented generation
+- Zoomcamp reviewers evaluating ingestion, retrieval, RAG, evaluation,
+  monitoring, UI, and reproducibility
 
-## Repository structure
+This is an educational prototype. It is not a medical device and must not be
+used for diagnosis, treatment selection, or patient-care decisions.
 
-```text
-app/                    API, RAG orchestration, and Streamlit placeholders
-data/
-  fhir_examples/        Example NSCLC and molecular FHIR bundles
-  evaluation_questions/ Evaluation question sets
-evaluation/             Evaluation workflow placeholder
-ingestion/              Ingestion CLI placeholder
-monitoring/             Telemetry placeholder
-prompts/                Oncology system prompts
-src/                    Core parsing, chunking, embedding, and retrieval code
-tests/                  Test suite placeholders
+## Architecture
+
+```mermaid
+flowchart LR
+    D[Synthetic FHIR bundles] --> P[FHIR parser]
+    P --> C[Oncology-aware chunker]
+    C --> E[Embedding provider]
+    E --> V[(ChromaDB)]
+    Q[User question] --> R[Retriever]
+    R --> E
+    V --> R
+    R --> G[RAG pipeline]
+    G --> L[LLM provider]
+    L --> A[Grounded answer and citations]
+    A --> U[FastAPI and Streamlit]
+    G --> M[Telemetry and evaluation]
 ```
 
-## Setup
+The target flow is:
 
-Python 3.10 or newer is recommended.
+1. Validate and parse synthetic FHIR bundles.
+2. Convert resources into traceable oncology documents.
+3. Chunk documents while preserving source metadata.
+4. Generate embeddings and upsert stable chunk IDs into ChromaDB.
+5. Retrieve and rerank evidence for a question.
+6. Generate an answer constrained to retrieved evidence.
+7. Return citations or abstain when evidence is insufficient.
+8. Record latency, retrieval results, model usage, and feedback.
+
+## Capability status
+
+| Capability | Status |
+|---|---|
+| FHIR parsing and oncology metadata extraction | Implemented in local core; migration review required |
+| Recursive and sentence-aware chunking | Implemented in local core; tests required |
+| Local/OpenAI embeddings | Implemented in local core; provider-name defect must be fixed |
+| ChromaDB storage | Implemented in local core; idempotency and score semantics must be fixed |
+| Retrieval and keyword reranking | Implemented in local core; interface defect must be fixed |
+| Multi-provider LLM clients | Implemented in local core; live-provider tests are intentionally excluded |
+| RAG orchestration | Not implemented |
+| FastAPI and Streamlit | Not implemented |
+| Automated retrieval/RAG evaluation | Framework started; labeled evidence IDs still required |
+| Monitoring | Not implemented |
+| Docker deployment | Configuration prepared; blocked on runnable API |
+
+See [the maintainer migration plan](docs/MAINTAINER_MIGRATION_PLAN.md) and the
+[capstone upgrade report](docs/CAPSTONE_UPGRADE_REPORT.md) for the detailed
+file classification and delivery roadmap.
+
+## Repository layout
+
+```text
+app/          FastAPI, RAG orchestration, and Streamlit entry points
+data/         Synthetic FHIR fixtures and versioned evaluation records
+docs/         Architecture, migration, and capstone planning
+evaluation/   Deterministic retrieval and answer-quality evaluation
+ingestion/    Command-line indexing entry point
+monitoring/   Structured telemetry and feedback
+prompts/      Versioned system prompts
+src/          Reusable parser, chunker, retrieval, and provider code
+tests/        Unit and integration tests
+```
+
+## Local setup
+
+Python 3.10 is the supported baseline.
 
 ```bash
-git clone https://github.com/AI-Precision-Medicine-Zoomcamp/precision-oncology-data-architect-assistant.git
-cd precision-oncology-data-architect-assistant
-
 python -m venv .venv
 source .venv/bin/activate
+python -m pip install --upgrade pip
 pip install -r requirements.txt
-
 cp .env.example .env
 ```
 
-Edit `.env` to select the LLM, embedding, and vector-store configuration.
-Never commit real API keys.
-
-The default setup uses:
-
-- `sentence-transformers/all-MiniLM-L6-v2` for local embeddings
-- ChromaDB for persistent vector storage
-- OpenAI as the configured LLM provider
-
-## Ingest the example FHIR bundles
-
-Until the ingestion CLI is implemented, run the pipeline directly:
+After the core migration and provider fixes:
 
 ```bash
-python - <<'PY'
-from src.ingestion import DataIngestionPipeline
-
-summary = DataIngestionPipeline().run()
-print(summary)
-PY
+python -m ingestion.index_to_vectordb
+uvicorn app.api:app --host 0.0.0.0 --port 8000
+streamlit run app/streamlit_app.py
 ```
 
-The pipeline reads JSON bundles from `data/fhir_examples/` by default and
-indexes the generated chunks in ChromaDB.
+Do not present these commands as release-ready until CI executes them
+successfully from a clean checkout.
 
-## Retrieve oncology context
-
-After ingestion:
+## Docker
 
 ```bash
-python - <<'PY'
-from src.retriever import Retriever
-
-results = Retriever().retrieve(
-    "How is an EGFR exon 19 deletion represented in this FHIR data?",
-    k=5,
-)
-
-for result in results:
-    print(f"Score: {result.score:.4f}")
-    print(result.chunk.text)
-    print("-" * 80)
-PY
+docker compose build
+docker compose up
 ```
 
-## Development
+The API should be available at `http://localhost:8000` and Streamlit at
+`http://localhost:8501` once the application entry points are implemented.
+
+## Evaluation
+
+The evaluation framework expects:
+
+- a JSONL ground-truth file containing `id` and `relevant_chunk_ids`;
+- a JSONL retrieval run containing `id` and ranked `retrieved_chunk_ids`.
 
 ```bash
-pytest tests/
+python -m evaluation.retrieval_eval \
+  --questions data/evaluation/questions.jsonl \
+  --results artifacts/retrieval_results.jsonl \
+  --k 5
 ```
 
-The test files are currently placeholders, so a successful run does not yet
-validate the implemented pipeline.
+It reports Recall@k, mean reciprocal rank, and nDCG@k overall and by category.
+The existing keyword-only NSCLC questions should be migrated to evidence-ID
+labels before they are used for quality claims.
 
-## Roadmap
+## Quality gates
 
-- Complete the ingestion command-line entry point.
-- Connect retrieval and LLM generation into the RAG pipeline.
-- Implement FastAPI and Streamlit interfaces.
-- Add unit and integration tests.
-- Add retrieval and answer-quality evaluation.
-- Add monitoring and telemetry.
+Before opening the final capstone PR:
 
-## Clinical use disclaimer
+```bash
+python -m pytest -q
+python -m compileall -q app evaluation ingestion monitoring src tests
+docker compose config
+docker compose build
+```
 
-This project is a technical prototype for data architecture and educational
-use. It is not a medical device and must not be used for clinical diagnosis,
-treatment selection, or patient-care decisions without appropriate validation
-and professional oversight.
+Required release behavior:
+
+- citations resolve to retrieved chunk IDs;
+- unsupported questions abstain;
+- repeated ingestion does not create duplicates;
+- no real PHI or secrets are committed;
+- CI runs tests rather than commenting them out;
+- README commands match the actual implementation.
