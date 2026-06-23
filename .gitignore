@@ -18,3 +18,12 @@ chroma_db/
 
 # OS Files
 .DS_Store
+
+.env
+.venv/
+__pycache__/
+data/raw/
+data/indexes/
+logs/
+*.db
+*.sqlite
