@@ -1,0 +1,68 @@
+# Precision Oncology Data Architect Assistant
+# RAG source manifest. The downloader stores pages under data/raw/<collection>/.
+# Use canonical public documentation pages to keep licensing simple and reproducible.
+collections:
+  fhir_r4_core:
+    description: FHIR R4 core resources needed for oncology/genomics modeling.
+    sources:
+      - name: FHIR R4 Overview
+        url: https://hl7.org/fhir/R4/overview.html
+      - name: FHIR Patient Resource
+        url: https://hl7.org/fhir/R4/patient.html
+      - name: FHIR Condition Resource
+        url: https://hl7.org/fhir/R4/condition.html
+      - name: FHIR Observation Resource
+        url: https://hl7.org/fhir/R4/observation.html
+      - name: FHIR DiagnosticReport Resource
+        url: https://hl7.org/fhir/R4/diagnosticreport.html
+      - name: FHIR MolecularSequence Resource
+        url: https://hl7.org/fhir/R4/molecularsequence.html
+      - name: FHIR Specimen Resource
+        url: https://hl7.org/fhir/R4/specimen.html
+  us_core:
+    description: US Core profiles relevant to Patient, Condition, Observation, DiagnosticReport, and Specimen.
+    sources:
+      - name: US Core Home
+        url: https://hl7.org/fhir/us/core/
+      - name: US Core Patient Profile
+        url: https://hl7.org/fhir/us/core/StructureDefinition-us-core-patient.html
+      - name: US Core Condition Problems and Health Concerns
+        url: https://hl7.org/fhir/us/core/StructureDefinition-us-core-condition-problems-health-concerns.html
+      - name: US Core Laboratory Result Observation
+        url: https://hl7.org/fhir/us/core/StructureDefinition-us-core-observation-lab.html
+      - name: US Core DiagnosticReport Lab
+        url: https://hl7.org/fhir/us/core/StructureDefinition-us-core-diagnosticreport-lab.html
+      - name: US Core Specimen Profile
+        url: https://hl7.org/fhir/us/core/StructureDefinition-us-core-specimen.html
+  mcode:
+    description: mCODE profiles for cancer diagnosis, tumor, staging, genomic biomarkers, and treatment modeling.
+    sources:
+      - name: mCODE Home
+        url: https://hl7.org/fhir/us/mcode/
+      - name: mCODE Profiles
+        url: https://hl7.org/fhir/us/mcode/profiles.html
+      - name: mCODE Primary Cancer Condition
+        url: https://hl7.org/fhir/us/mcode/StructureDefinition-mcode-primary-cancer-condition.html
+      - name: mCODE TNM Clinical Stage Group
+        url: https://hl7.org/fhir/us/mcode/StructureDefinition-mcode-tnm-clinical-stage-group.html
+      - name: mCODE Cancer Disease Status
+        url: https://hl7.org/fhir/us/mcode/StructureDefinition-mcode-cancer-disease-status.html
+      - name: mCODE Tumor Marker Test
+        url: https://hl7.org/fhir/us/mcode/StructureDefinition-mcode-tumor-marker-test.html
+      - name: mCODE Genomic Variant
+        url: https://hl7.org/fhir/us/mcode/StructureDefinition-mcode-genomic-variant.html
+      - name: mCODE Human Specimen
+        url: https://hl7.org/fhir/us/mcode/StructureDefinition-mcode-human-specimen.html
+  genomics_reporting:
+    description: HL7 FHIR Genomics Reporting Implementation Guide.
+    sources:
+      - name: Genomics Reporting Home
+        url: https://hl7.org/fhir/uv/genomics-reporting/
+      - name: Genomics Reporting Profiles
+        url: https://hl7.org/fhir/uv/genomics-reporting/profiles.html
+      - name: Genomics DiagnosticReport
+        url: https://hl7.org/fhir/uv/genomics-reporting/StructureDefinition-genomics-report.html
+      - name: Genomics Variant
+        url: https://hl7.org/fhir/uv/genomics-reporting/StructureDefinition-variant.html
+      - name: Genomics Molecular Biomarker
+        url: https://hl7.org/fhir/uv/genomics-reporting/StructureDefinition-molecular-biomarker.html
