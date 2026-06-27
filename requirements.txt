@@ -10,7 +10,13 @@ PyYAML==6.0.2
 
 # Retrieval and embeddings
 chromadb==0.5.3
+minsearch==0.0.2
 sentence-transformers==2.7.0
+
+# Ingestion
+beautifulsoup4==4.12.3
+lxml==5.3.0
+requests==2.32.3
 
 # LLM providers
 openai==2.43.0

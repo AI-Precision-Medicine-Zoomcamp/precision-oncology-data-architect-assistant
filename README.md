@@ -1,88 +1,91 @@
 # Precision Oncology Data Architect Assistant
 
-A Zoomcamp capstone project for turning synthetic oncology FHIR R4 bundles into
-searchable evidence and citation-grounded answers.
+An LLM/RAG-powered assistant for oncology and genomics data modeling using
+modern healthcare standards:
 
-> **Migration status:** the repository scaffold is being integrated with a
-> separate local core implementation. The core contains FHIR parsing, chunking,
-> embedding, ChromaDB, retrieval, prompt loading, and multi-provider LLM
-> adapters. API, UI, evaluation execution, monitoring, and deployment remain
-> integration work until their pull requests are merged and verified.
+- FHIR R4
+- US Core
+- mCODE
+- Genomics Reporting Implementation Guide
 
-## Intended users
+The assistant helps healthcare data architects, informaticians, researchers,
+and developers understand how oncology and genomics data should be represented,
+modeled, and exchanged.
 
-- Healthcare data architects working with FHIR, mCODE, and genomics data
-- Engineers prototyping oncology retrieval-augmented generation
-- Zoomcamp reviewers evaluating ingestion, retrieval, RAG, evaluation,
-  monitoring, UI, and reproducibility
+## Scope
 
-This is an educational prototype. It is not a medical device and must not be
-used for diagnosis, treatment selection, or patient-care decisions.
+This project focuses on:
+
+- oncology data modeling
+- FHIR resource selection
+- mCODE profile guidance
+- molecular report representation
+- genomics reporting architecture
+- sample FHIR resource and bundle design
+
+It does not provide:
+
+- clinical treatment recommendations
+- variant pathogenicity interpretation
+- clinical trial matching
+- treatment decision support
 
 ## Architecture
 
+The active application uses an offline ingestion pipeline and a lightweight
+runtime RAG pipeline. Canonical FHIR R4, US Core, mCODE, and Genomics Reporting
+pages are downloaded from a manifest, converted to clean text, split into
+overlapping JSONL chunks, and indexed with Minsearch. At runtime, the FastAPI
+entrypoint, Streamlit UI, and reusable Python service retrieve top-ranked
+chunks and either return them directly or pass them to the configured Groq,
+OpenRouter, or OpenAI model. Queries and user feedback are recorded in a local
+append-only JSONL log.
+
 ```mermaid
 flowchart LR
-    D[Synthetic FHIR bundles] --> P[FHIR parser]
-    P --> C[Oncology-aware chunker]
-    C --> E[Embedding provider]
-    E --> V[(ChromaDB)]
-    Q[User question] --> R[Retriever]
-    R --> E
-    V --> R
-    R --> G[RAG pipeline]
-    G --> L[LLM provider]
-    L --> A[Grounded answer and citations]
-    A --> U[FastAPI and Streamlit]
-    G --> M[Telemetry and evaluation]
+    Standards[Standards websites] --> Download[Download and clean]
+    Download --> Raw[(Raw text and metadata)]
+    Raw --> Chunk[Chunk to JSONL]
+    Chunk --> Index[(Minsearch index)]
+    User[User] --> UI[Streamlit UI]
+    User --> API[FastAPI API]
+    UI --> Service[Assistant service]
+    API --> Service
+    Service --> Search[Retrieve top-k chunks]
+    Index --> Search
+    Search --> LLM{LLM enabled?}
+    LLM -->|Yes| Answer[Grounded answer]
+    LLM -->|No| Context[Retrieved context]
+    Answer --> UI
+    Context --> UI
+    Answer --> API
+    Context --> API
+    Service --> Logs[(Query log)]
+    UI --> Logs
 ```
 
-The target flow is:
+A separate legacy/experimental path supports parsing FHIR JSON bundles,
+embedding typed chunks, and storing them in ChromaDB. That path is not used by
+the current Streamlit or FastAPI runtime.
 
-1. Validate and parse synthetic FHIR bundles.
-2. Convert resources into traceable oncology documents.
-3. Chunk documents while preserving source metadata.
-4. Generate embeddings and upsert stable chunk IDs into ChromaDB.
-5. Retrieve and rerank evidence for a question.
-6. Generate an answer constrained to retrieved evidence.
-7. Return citations or abstain when evidence is insufficient.
-8. Record latency, retrieval results, model usage, and feedback.
+See [docs/architecture.md](docs/architecture.md) for the complete project,
+module dependency, data flow, folder structure, and query sequence diagrams.
 
-## Capability status
-
-| Capability | Status |
-|---|---|
-| FHIR parsing and oncology metadata extraction | Implemented in local core; migration review required |
-| Recursive and sentence-aware chunking | Implemented in local core; tests required |
-| Local/OpenAI embeddings | Implemented in local core; provider-name defect must be fixed |
-| ChromaDB storage | Implemented in local core; idempotency and score semantics must be fixed |
-| Retrieval and keyword reranking | Implemented in local core; interface defect must be fixed |
-| Multi-provider LLM clients | Implemented in local core; live-provider tests are intentionally excluded |
-| RAG orchestration | Not implemented |
-| FastAPI and Streamlit | Not implemented |
-| Automated retrieval/RAG evaluation | Framework started; labeled evidence IDs still required |
-| Monitoring | Not implemented |
-| Docker deployment | Configuration prepared; blocked on runnable API |
-
-See [the maintainer migration plan](docs/MAINTAINER_MIGRATION_PLAN.md) and the
-[capstone upgrade report](docs/CAPSTONE_UPGRADE_REPORT.md) for the detailed
-file classification and delivery roadmap.
-
-## Repository layout
+## Repository Structure
 
 ```text
-app/          FastAPI, RAG orchestration, and Streamlit entry points
-data/         Synthetic FHIR fixtures and versioned evaluation records
-docs/         Architecture, migration, and capstone planning
-evaluation/   Deterministic retrieval and answer-quality evaluation
-ingestion/    Command-line indexing entry point
-monitoring/   Structured telemetry and feedback
-prompts/      Versioned system prompts
-src/          Reusable parser, chunker, retrieval, and provider code
-tests/        Unit and integration tests
+app/                  FastAPI entrypoint and Streamlit UI
+src/ingestion/         download and chunk documents
+src/retrieval/         build and query the search index
+src/rag/               LLM answer pipeline
+src/api/               reusable service interface
+evaluation/            evaluation questions and scripts
+monitoring/            local query and feedback logging
+docs/                  project documentation
+data/                  raw, processed, and indexed data
 ```
 
-## Local setup
+## Local Setup
 
 Python 3.10 is the supported baseline.
 
@@ -94,33 +97,69 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-After the core migration and provider fixes:
+Build or refresh the local retrieval index:
+
+```bash
+python -m src.ingestion.download_sources
+python -m src.ingestion.ingest_documents
+python -m ingestion.index_to_vectordb
+```
+
+If `data/raw/` and `data/processed/chunks.jsonl` already exist, the shorter
+index refresh is enough:
 
 ```bash
 python -m ingestion.index_to_vectordb
+```
+
+## Run
+
+Start the FastAPI service:
+
+```bash
 uvicorn app.api:app --host 0.0.0.0 --port 8000
+```
+
+Start the Streamlit app:
+
+```bash
 streamlit run app/streamlit_app.py
 ```
 
-Do not present these commands as release-ready until CI executes them
-successfully from a clean checkout.
+Useful API endpoints:
 
-## Docker
+- `GET /health`
+- `POST /search`
+- `POST /answer`
 
-```bash
-docker compose build
-docker compose up
+Example API request body:
+
+```json
+{
+  "query": "How should EGFR Exon19del be represented in mCODE?",
+  "num_results": 5,
+  "use_llm": false
+}
 ```
 
-The API should be available at `http://localhost:8000` and Streamlit at
-`http://localhost:8501` once the application entry points are implemented.
+## RAG Answer Mode
+
+The app can run in retrieval-only mode without an LLM key. To enable generated
+answers, create `.env` from `.env.example` and set the provider-specific key,
+for example:
+
+```text
+LLM_PROVIDER=openai
+OPENAI_API_KEY=your_key_here
+OPENAI_MODEL=gpt-4o-mini
+```
+
+Supported providers in the active RAG pipeline are `groq`, `openrouter`, and
+`openai`.
 
 ## Evaluation
 
-The evaluation framework expects:
-
-- a JSONL ground-truth file containing `id` and `relevant_chunk_ids`;
-- a JSONL retrieval run containing `id` and ranked `retrieved_chunk_ids`.
+Retrieval evaluation with evidence IDs:
 
 ```bash
 python -m evaluation.retrieval_eval \
@@ -129,13 +168,37 @@ python -m evaluation.retrieval_eval \
   --k 5
 ```
 
-It reports Recall@k, mean reciprocal rank, and nDCG@k overall and by category.
-The existing keyword-only NSCLC questions should be migrated to evidence-ID
-labels before they are used for quality claims.
+Answer-quality smoke evaluation from the CSV fixture:
 
-## Quality gates
+```bash
+python evaluation/llm_eval.py --limit 5
+```
 
-Before opening the final capstone PR:
+The copied `evaluation/ground_truth.csv` and `evaluation/questions.csv` provide
+starter questions and expected-source labels. Treat those as smoke-test assets,
+not final quality claims.
+
+## Monitoring
+
+Queries and feedback are logged locally to:
+
+```text
+logs/queries.jsonl
+```
+
+## Docker
+
+```bash
+docker compose build
+docker compose up
+```
+
+The API is exposed at `http://localhost:8000` and Streamlit at
+`http://localhost:8501`.
+
+## Quality Gates
+
+Before opening a final capstone PR:
 
 ```bash
 python -m pytest -q
@@ -152,3 +215,7 @@ Required release behavior:
 - no real PHI or secrets are committed;
 - CI runs tests rather than commenting them out;
 - README commands match the actual implementation.
+
+See [docs/course_requirements.md](docs/course_requirements.md),
+[docs/evaluation.md](docs/evaluation.md), and
+[docs/clawbio_integration.md](docs/clawbio_integration.md) for more detail.

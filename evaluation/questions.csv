@@ -1,0 +1,16 @@
+id,question,category
+Q001,How should NSCLC be represented in mCODE?,diagnosis_modeling
+Q002,How should EGFR Exon19del be modeled using FHIR Genomics Reporting?,genomics_modeling
+Q003,Which mCODE profiles are needed for a primary cancer condition?,mcode_profiles
+Q004,How should a molecular diagnostic report be structured in FHIR?,diagnostic_report
+Q005,Which FHIR resources are used for genomic findings?,genomics_resources
+Q006,How should tumor marker results be represented?,biomarker_modeling
+Q007,How should a specimen be linked to a genomic observation?,specimen_linking
+Q008,What is the relationship between DiagnosticReport and Observation?,resource_relationships
+Q009,How do US Core profiles constrain FHIR resources?,us_core
+Q010,How do mCODE and Genomics Reporting work together?,architecture
+Q011,How should lung adenocarcinoma be represented using mCODE?,diagnosis_modeling
+Q012,Which resource should represent a genomic variant observation?,genomics_modeling
+Q013,How should a biomarker test result be represented in FHIR?,biomarker_modeling
+Q014,How should cancer staging be modeled in mCODE?,staging
+Q015,What FHIR resources are commonly included in an oncology diagnostic bundle?,architecture

@@ -12,6 +12,8 @@ __pycache__/
 # Data & Vector Databases
 chroma_db/
 *.csv
+!evaluation/ground_truth.csv
+!evaluation/questions.csv
 *.json
 *.parquet
 *.sqlite3
