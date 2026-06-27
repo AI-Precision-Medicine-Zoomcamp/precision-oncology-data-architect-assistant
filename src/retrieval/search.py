@@ -16,7 +16,7 @@ def load_index(path: Path = DEFAULT_INDEX):
 def search(query: str, num_results: int = 5, collection: str | None = None) -> list[dict]:
     index = load_index()
     boost = {"source_name": 1.5, "content": 1.0}
-    filter_dict = {"collection": collection} if collection else None
+    filter_dict = {"collection": collection} if collection else {}
     return index.search(query=query, boost_dict=boost, filter_dict=filter_dict, num_results=num_results)
 
 
