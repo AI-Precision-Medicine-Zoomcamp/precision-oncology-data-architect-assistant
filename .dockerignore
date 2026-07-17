@@ -9,6 +9,8 @@ __pycache__
 .env
 chroma_db
 data/chroma_db
+data/indexes
+data/processed
+data/raw
 artifacts
 logs
-

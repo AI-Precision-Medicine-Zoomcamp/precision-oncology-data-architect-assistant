@@ -6,7 +6,7 @@ This script can run in two modes:
 
 Usage:
     python evaluation/llm_eval.py --questions evaluation/ground_truth.csv --limit 5
-    python evaluation/llm_eval.py --judge --limit 5
+    python evaluation/llm_eval.py --use-llm --judge --limit 5
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ if str(ROOT_DIR) not in sys.path:
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from src.rag.pipeline import answer_question
+from src.api.service import run_assistant
 
 
 def keywords(text: str) -> set[str]:
@@ -74,11 +74,22 @@ def load_rows(path: Path) -> list[dict]:
         return list(csv.DictReader(f))
 
 
+def evaluation_text(rag: dict, use_llm: bool) -> str:
+    """Return generated answer text or retrieved context for offline smoke eval."""
+    if use_llm:
+        return str(rag.get("answer", ""))
+    return "\n\n".join(
+        str(context.get("content", ""))
+        for context in rag.get("contexts", [])
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--questions", type=Path, default=Path("evaluation/ground_truth.csv"))
     parser.add_argument("--out", type=Path, default=Path("evaluation/llm_eval_results.json"))
     parser.add_argument("--limit", type=int, default=None)
+    parser.add_argument("--use-llm", action="store_true")
     parser.add_argument("--judge", action="store_true")
     parser.add_argument("--model", default=os.getenv("OPENAI_MODEL", "gpt-4o-mini"))
     parser.add_argument("--judge-model", default=os.getenv("OPENAI_JUDGE_MODEL", "gpt-4o-mini"))
@@ -92,17 +103,19 @@ def main() -> None:
     client = OpenAI() if args.judge else None
     results = []
     for row in rows:
-        rag = answer_question(row["question"], model=args.model)
+        rag = run_assistant(row["question"], use_llm=args.use_llm)
         answer = rag["answer"]
+        text_to_score = evaluation_text(rag, args.use_llm)
         if args.judge and client:
-            score = judge_score(client, row["question"], row["expected_answer"], answer, args.judge_model)
+            score = judge_score(client, row["question"], row["expected_answer"], text_to_score, args.judge_model)
         else:
-            score = heuristic_score(answer, row["expected_answer"])
+            score = heuristic_score(text_to_score, row["expected_answer"])
         results.append({
             "id": row.get("id"),
             "question": row["question"],
             "expected_answer": row["expected_answer"],
             "generated_answer": answer,
+            "evaluated_text_kind": "generated_answer" if args.use_llm else "retrieved_context",
             "sources": rag.get("sources", []),
             "score": score,
         })

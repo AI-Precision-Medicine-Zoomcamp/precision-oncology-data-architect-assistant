@@ -97,6 +97,13 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
+The active app uses Minsearch. The older ChromaDB/vector embedding path is
+kept for reference and can be installed only when needed:
+
+```bash
+pip install -r requirements-legacy.txt
+```
+
 Build or refresh the local retrieval index:
 
 ```bash
@@ -162,16 +169,23 @@ Supported providers in the active RAG pipeline are `groq`, `openrouter`, and
 Retrieval evaluation with evidence IDs:
 
 ```bash
-python -m evaluation.retrieval_eval \
-  --questions data/evaluation/questions.jsonl \
-  --results artifacts/retrieval_results.jsonl \
+mkdir -p artifacts
+python evaluation/retrieval_eval.py \
+  --questions evaluation/ground_truth.csv \
+  --output artifacts/retrieval_metrics.json \
   --k 5
 ```
 
-Answer-quality smoke evaluation from the CSV fixture:
+Offline answer-context smoke evaluation from the CSV fixture:
 
 ```bash
 python evaluation/llm_eval.py --limit 5
+```
+
+Run generated-answer evaluation with a configured LLM key:
+
+```bash
+python evaluation/llm_eval.py --use-llm --limit 5
 ```
 
 The copied `evaluation/ground_truth.csv` and `evaluation/questions.csv` provide
@@ -194,7 +208,14 @@ docker compose up
 ```
 
 The API is exposed at `http://localhost:8000` and Streamlit at
-`http://localhost:8501`.
+`http://localhost:8501`. Runtime secrets are read from local `.env`, which is
+ignored by git and excluded from the Docker build context. The compose file
+uses variable interpolation so sanitized config can be checked with:
+
+```bash
+env -u GROQ_API_KEY -u OPENROUTER_API_KEY -u OPENAI_API_KEY \
+  docker compose --env-file .env.example config
+```
 
 ## Quality Gates
 

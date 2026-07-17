@@ -1,9 +1,13 @@
 from evaluation.retrieval_eval import (
     EvaluationRecord,
     build_report,
+    build_source_report,
     ndcg_at_k,
+    parse_expected_sources,
     recall_at_k,
     reciprocal_rank,
+    SourceEvaluationRecord,
+    source_recall_at_k,
 )
 
 
@@ -30,3 +34,31 @@ def test_report_contains_category_slices() -> None:
 
     assert report["overall"]["count"] == 2
     assert set(report["by_category"]) == {"biomarker", "staging"}
+
+
+def test_parse_expected_sources_handles_pipe_separated_labels() -> None:
+    assert parse_expected_sources("mcode| FHIR |") == ("mcode", "fhir_r4_core")
+
+
+def test_source_recall_at_k_matches_expected_collections() -> None:
+    assert source_recall_at_k(["mcode", "fhir"], ["genomics", "mcode"], k=2) == 0.5
+
+
+def test_source_report_includes_records_for_review() -> None:
+    records = [
+        SourceEvaluationRecord("q1", "profile", ("mcode",), ("fhir", "mcode"), ("c1", "c2")),
+    ]
+    report = build_source_report(records, k=2)
+
+    assert report["relevance_granularity"] == "source_collection"
+    assert report["records"][0]["retrieved_chunk_ids"] == ("c1", "c2")
+
+
+def test_source_report_excludes_non_indexed_source_labels() -> None:
+    records = [
+        SourceEvaluationRecord("q1", "safety", ("project_scope",), ("mcode",), ("c1",)),
+    ]
+    report = build_source_report(records, k=1)
+
+    assert report["overall"]["count"] == 0
+    assert report["excluded_records"][0]["question_id"] == "q1"

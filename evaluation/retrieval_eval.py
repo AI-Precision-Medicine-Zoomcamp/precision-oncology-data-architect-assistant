@@ -3,13 +3,25 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import math
+import sys
 from collections import defaultdict
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from statistics import mean
 from typing import Iterable, Sequence
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+SOURCE_ALIASES = {
+    "fhir": "fhir_r4_core",
+}
+
+INDEXED_COLLECTIONS = {"fhir_r4_core", "us_core", "mcode", "genomics_reporting"}
 
 
 @dataclass(frozen=True)
@@ -30,6 +42,17 @@ class MetricSummary:
     recall_at_k: float
     mean_reciprocal_rank: float
     ndcg_at_k: float
+
+
+@dataclass(frozen=True)
+class SourceEvaluationRecord:
+    """Ground truth and ranked retrieval output for one CSV fixture question."""
+
+    question_id: str
+    category: str
+    expected_sources: tuple[str, ...]
+    retrieved_sources: tuple[str, ...]
+    retrieved_chunk_ids: tuple[str, ...]
 
 
 def recall_at_k(
@@ -158,10 +181,168 @@ def build_report(records: list[EvaluationRecord], k: int) -> dict:
     }
 
 
+def parse_expected_sources(value: str) -> tuple[str, ...]:
+    """Parse pipe-separated expected source labels from the CSV fixture."""
+    return tuple(
+        SOURCE_ALIASES.get(source.strip().lower(), source.strip().lower())
+        for source in value.split("|")
+        if source.strip()
+    )
+
+
+def load_csv_questions(path: Path) -> list[dict]:
+    """Load evaluation questions from the tracked CSV fixture."""
+    with path.open(encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    required = {"id", "question", "expected_sources", "category"}
+    if not rows:
+        raise ValueError(f"{path} has no rows")
+    missing = required.difference(rows[0])
+    if missing:
+        raise ValueError(f"{path} is missing columns: {sorted(missing)}")
+    return rows
+
+
+def source_recall_at_k(
+    expected_sources: Sequence[str], retrieved_sources: Sequence[str], k: int
+) -> float:
+    """Return fraction of expected source labels seen in first *k* results."""
+    expected = set(expected_sources)
+    if not expected:
+        return 1.0
+    found = expected.intersection(source.lower() for source in retrieved_sources[:k])
+    return len(found) / len(expected)
+
+
+def source_reciprocal_rank(
+    expected_sources: Sequence[str], retrieved_sources: Sequence[str]
+) -> float:
+    """Return reciprocal rank of the first result from an expected source."""
+    expected = set(expected_sources)
+    for rank, source in enumerate(retrieved_sources, start=1):
+        if source.lower() in expected:
+            return 1.0 / rank
+    return 0.0
+
+
+def source_ndcg_at_k(
+    expected_sources: Sequence[str], retrieved_sources: Sequence[str], k: int
+) -> float:
+    """Return binary nDCG at *k* using source labels as relevance judgments."""
+    expected = set(expected_sources)
+    if not expected:
+        return 1.0
+
+    seen: set[str] = set()
+    dcg = 0.0
+    for rank, source in enumerate(retrieved_sources[:k], start=1):
+        source = source.lower()
+        if source in expected and source not in seen:
+            dcg += 1.0 / math.log2(rank + 1)
+            seen.add(source)
+    ideal_hits = min(len(expected), k)
+    ideal_dcg = sum(
+        1.0 / math.log2(rank + 1)
+        for rank in range(1, ideal_hits + 1)
+    )
+    return dcg / ideal_dcg if ideal_dcg else 0.0
+
+
+def summarize_source_records(
+    records: Iterable[SourceEvaluationRecord], k: int
+) -> MetricSummary:
+    """Aggregate source-label retrieval metrics over CSV records."""
+    records = list(records)
+    if not records:
+        return MetricSummary(0, 0.0, 0.0, 0.0)
+
+    return MetricSummary(
+        count=len(records),
+        recall_at_k=mean(
+            source_recall_at_k(r.expected_sources, r.retrieved_sources, k)
+            for r in records
+        ),
+        mean_reciprocal_rank=mean(
+            source_reciprocal_rank(r.expected_sources, r.retrieved_sources)
+            for r in records
+        ),
+        ndcg_at_k=mean(
+            source_ndcg_at_k(r.expected_sources, r.retrieved_sources, k)
+            for r in records
+        ),
+    )
+
+
+def build_source_report(records: list[SourceEvaluationRecord], k: int) -> dict:
+    """Build overall and category-level metrics for live CSV evaluation."""
+    grouped: dict[str, list[SourceEvaluationRecord]] = defaultdict(list)
+    scored_records: list[SourceEvaluationRecord] = []
+    excluded_records: list[SourceEvaluationRecord] = []
+    for record in records:
+        if set(record.expected_sources).issubset(INDEXED_COLLECTIONS):
+            scored_records.append(record)
+        else:
+            excluded_records.append(record)
+
+    for record in scored_records:
+        grouped[record.category].append(record)
+
+    return {
+        "k": k,
+        "relevance_granularity": "source_collection",
+        "overall": asdict(summarize_source_records(scored_records, k)),
+        "by_category": {
+            category: asdict(summarize_source_records(category_records, k))
+            for category, category_records in sorted(grouped.items())
+        },
+        "excluded_records": [
+            {
+                "question_id": record.question_id,
+                "category": record.category,
+                "expected_sources": record.expected_sources,
+                "reason": "expected source is not an indexed collection",
+            }
+            for record in excluded_records
+        ],
+        "records": [
+            {
+                "question_id": record.question_id,
+                "category": record.category,
+                "expected_sources": record.expected_sources,
+                "retrieved_sources": record.retrieved_sources[:k],
+                "retrieved_chunk_ids": record.retrieved_chunk_ids[:k],
+            }
+            for record in scored_records
+        ],
+    }
+
+
+def run_live_csv_evaluation(path: Path, k: int) -> dict:
+    """Run retrieval against the active local Minsearch index for CSV fixtures."""
+    from src.retrieval.search import search
+
+    records: list[SourceEvaluationRecord] = []
+    for row in load_csv_questions(path):
+        results = search(row["question"], num_results=k)
+        records.append(
+            SourceEvaluationRecord(
+                question_id=str(row["id"]),
+                category=str(row["category"]),
+                expected_sources=parse_expected_sources(row["expected_sources"]),
+                retrieved_sources=tuple(
+                    str(result.get("collection", "")).lower()
+                    for result in results
+                ),
+                retrieved_chunk_ids=tuple(str(result.get("id", "")) for result in results),
+            )
+        )
+    return build_source_report(records, k)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--questions", type=Path, required=True)
-    parser.add_argument("--results", type=Path, required=True)
+    parser.add_argument("--results", type=Path)
     parser.add_argument("--k", type=int, default=5)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
@@ -169,8 +350,11 @@ def main() -> None:
     if args.k < 1:
         parser.error("--k must be at least 1")
 
-    records = join_records(load_jsonl(args.questions), load_jsonl(args.results))
-    report = build_report(records, args.k)
+    if args.results:
+        records = join_records(load_jsonl(args.questions), load_jsonl(args.results))
+        report = build_report(records, args.k)
+    else:
+        report = run_live_csv_evaluation(args.questions, args.k)
     rendered = json.dumps(report, indent=2, sort_keys=True)
     print(rendered)
 

@@ -7,17 +7,77 @@ from pathlib import Path
 
 DEFAULT_INDEX = Path("data/indexes/minsearch_index.pkl")
 
+DOMAIN_EXPANSIONS = {
+    "mcode profiles": "mCODE Profiles PrimaryCancerCondition GenomicVariant TumorMarkerTest HumanSpecimen CancerStage",
+    "nsclc": "non small cell lung cancer primary cancer condition mCODE Condition",
+    "non-small cell": "non small cell lung cancer primary cancer condition mCODE Condition",
+    "pd-l1": "PD-L1 molecular biomarker cell receptor ligand immune stain tumor marker test Observation",
+    "pdl1": "PD-L1 molecular biomarker cell receptor ligand immune stain tumor marker test Observation",
+    "biomarker": "molecular biomarker tumor marker test Observation Genomics Reporting mCODE",
+    "bundle": "FHIR Bundle Patient Condition Specimen DiagnosticReport Observation mCODEPatientBundle",
+    "molecular report": "Genomics Report DiagnosticReport Observation variant biomarker specimen",
+    "genomic finding": "Genomics Reporting Variant Observation GenomicVariant DiagnosticReport",
+    "tumor staging": "CancerStage TNMStageGroup TNM Clinical Stage Group mCODE",
+}
+
 
 def load_index(path: Path = DEFAULT_INDEX):
     with path.open("rb") as f:
         return pickle.load(f)
 
 
+def expand_query(query: str) -> str:
+    """Add transparent domain synonyms for terse oncology/FHIR terms."""
+    normalized = query.lower()
+    expansions = [
+        expansion
+        for trigger, expansion in DOMAIN_EXPANSIONS.items()
+        if trigger in normalized
+    ]
+    if not expansions:
+        return query
+    return f"{query} {' '.join(expansions)}"
+
+
+def diversify_by_collection(results: list[dict], num_results: int) -> list[dict]:
+    """Prefer collection diversity, then fill remaining slots by original rank."""
+    selected: list[dict] = []
+    selected_ids: set[str] = set()
+    seen_collections: set[str] = set()
+
+    for result in results:
+        collection = str(result.get("collection", ""))
+        result_id = str(result.get("id", ""))
+        if collection and collection not in seen_collections:
+            selected.append(result)
+            selected_ids.add(result_id)
+            seen_collections.add(collection)
+        if len(selected) == num_results:
+            return selected
+
+    for result in results:
+        result_id = str(result.get("id", ""))
+        if result_id not in selected_ids:
+            selected.append(result)
+        if len(selected) == num_results:
+            return selected
+
+    return selected
+
+
 def search(query: str, num_results: int = 5, collection: str | None = None) -> list[dict]:
     index = load_index()
-    boost = {"source_name": 1.5, "content": 1.0}
+    boost = {"source_name": 2.5, "content": 1.0}
     filter_dict = {"collection": collection} if collection else {}
-    return index.search(query=query, boost_dict=boost, filter_dict=filter_dict, num_results=num_results)
+    raw_results = index.search(
+        query=expand_query(query),
+        boost_dict=boost,
+        filter_dict=filter_dict,
+        num_results=num_results if collection else max(num_results * 4, num_results),
+    )
+    if collection:
+        return raw_results
+    return diversify_by_collection(raw_results, num_results)
 
 
 def main() -> None:
