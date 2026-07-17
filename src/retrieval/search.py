@@ -6,6 +6,7 @@ import pickle
 from pathlib import Path
 
 DEFAULT_INDEX = Path("data/indexes/minsearch_index.pkl")
+DEFAULT_CHUNKS = Path("data/processed/chunks.jsonl")
 
 DOMAIN_EXPANSIONS = {
     "mcode profiles": "mCODE Profiles PrimaryCancerCondition GenomicVariant TumorMarkerTest HumanSpecimen CancerStage",
@@ -21,7 +22,25 @@ DOMAIN_EXPANSIONS = {
 }
 
 
-def load_index(path: Path = DEFAULT_INDEX):
+def load_index(path: Path = DEFAULT_INDEX, chunks_path: Path = DEFAULT_CHUNKS):
+    """Load the Minsearch index, rebuilding from chunks when possible."""
+    if not path.exists():
+        if not chunks_path.exists():
+            raise FileNotFoundError(
+                f"Missing search index at {path} and processed chunks at {chunks_path}. "
+                "Run: python -m src.ingestion.download_sources && "
+                "python -m src.ingestion.ingest_documents && "
+                "python -m ingestion.index_to_vectordb"
+            )
+        from src.retrieval.build_index import build_index, load_chunks
+
+        docs = load_chunks(chunks_path)
+        index = build_index(docs)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("wb") as f:
+            pickle.dump(index, f)
+        return index
+
     with path.open("rb") as f:
         return pickle.load(f)
 

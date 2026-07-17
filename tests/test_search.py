@@ -59,6 +59,32 @@ def test_search_rejects_unknown_strategy(monkeypatch):
         raise AssertionError("Expected ValueError")
 
 
+def test_load_index_rebuilds_from_chunks_when_pickle_is_missing(monkeypatch, tmp_path):
+    index_path = tmp_path / "indexes" / "minsearch_index.pkl"
+    chunks_path = tmp_path / "processed" / "chunks.jsonl"
+    chunks_path.parent.mkdir()
+    chunks_path.write_text('{"id":"c1","content":"EGFR","source_name":"fixture","collection":"mcode","source_url":"local"}\n')
+
+    monkeypatch.setattr("src.retrieval.build_index.build_index", lambda docs: {"built": True})
+
+    index = search_module.load_index(index_path, chunks_path)
+
+    assert index == {"built": True}
+    assert index_path.exists()
+
+
+def test_load_index_reports_rebuild_command_when_artifacts_are_missing(tmp_path):
+    try:
+        search_module.load_index(
+            tmp_path / "indexes" / "minsearch_index.pkl",
+            tmp_path / "processed" / "chunks.jsonl",
+        )
+    except FileNotFoundError as exc:
+        assert "python -m src.ingestion.download_sources" in str(exc)
+    else:
+        raise AssertionError("Expected FileNotFoundError")
+
+
 def test_diversify_by_collection_prefers_distinct_collections_first():
     results = [
         {"id": "a", "collection": "mcode"},
