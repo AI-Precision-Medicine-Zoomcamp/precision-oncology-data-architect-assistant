@@ -261,6 +261,7 @@ Required release behavior:
 - CI runs tests rather than commenting them out;
 - README commands match the actual implementation.
 
-See [docs/course_requirements.md](docs/course_requirements.md),
+See [docs/REVIEWER_EVALUATION_GUIDE.md](docs/REVIEWER_EVALUATION_GUIDE.md),
+[docs/course_requirements.md](docs/course_requirements.md),
 [docs/evaluation.md](docs/evaluation.md), and
 [docs/clawbio_integration.md](docs/clawbio_integration.md) for more detail.
