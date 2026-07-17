@@ -84,6 +84,47 @@ def evaluation_text(rag: dict, use_llm: bool) -> str:
     )
 
 
+def evaluate_rows(rows: list[dict], use_llm: bool, judge: bool, judge_model: str) -> dict:
+    client = OpenAI() if judge else None
+    results = []
+    for row in rows:
+        rag = run_assistant(row["question"], use_llm=use_llm)
+        answer = rag["answer"]
+        text_to_score = evaluation_text(rag, use_llm)
+        if judge and client:
+            score = judge_score(
+                client,
+                row["question"],
+                row["expected_answer"],
+                text_to_score,
+                judge_model,
+            )
+        else:
+            score = heuristic_score(text_to_score, row["expected_answer"])
+        results.append({
+            "id": row.get("id"),
+            "question": row["question"],
+            "expected_answer": row["expected_answer"],
+            "generated_answer": answer,
+            "evaluated_text_kind": "generated_answer" if use_llm else "retrieved_context",
+            "sources": rag.get("sources", []),
+            "score": score,
+        })
+
+    numeric_scores = []
+    for result in results:
+        score = result["score"].get("score")
+        if isinstance(score, (int, float)):
+            numeric_scores.append(float(score))
+    return {
+        "num_questions": len(results),
+        "use_llm": use_llm,
+        "judge_mode": judge,
+        "average_score": mean(numeric_scores) if numeric_scores else None,
+        "results": results,
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--questions", type=Path, default=Path("evaluation/ground_truth.csv"))
@@ -93,6 +134,11 @@ def main() -> None:
     parser.add_argument("--judge", action="store_true")
     parser.add_argument("--model", default=os.getenv("OPENAI_MODEL", "gpt-4o-mini"))
     parser.add_argument("--judge-model", default=os.getenv("OPENAI_JUDGE_MODEL", "gpt-4o-mini"))
+    parser.add_argument(
+        "--compare-modes",
+        action="store_true",
+        help="Compare retrieval-context scoring with generated-answer scoring.",
+    )
     args = parser.parse_args()
 
     load_dotenv()
@@ -100,41 +146,36 @@ def main() -> None:
     if args.limit:
         rows = rows[: args.limit]
 
-    client = OpenAI() if args.judge else None
-    results = []
-    for row in rows:
-        rag = run_assistant(row["question"], use_llm=args.use_llm)
-        answer = rag["answer"]
-        text_to_score = evaluation_text(rag, args.use_llm)
-        if args.judge and client:
-            score = judge_score(client, row["question"], row["expected_answer"], text_to_score, args.judge_model)
-        else:
-            score = heuristic_score(text_to_score, row["expected_answer"])
-        results.append({
-            "id": row.get("id"),
-            "question": row["question"],
-            "expected_answer": row["expected_answer"],
-            "generated_answer": answer,
-            "evaluated_text_kind": "generated_answer" if args.use_llm else "retrieved_context",
-            "sources": rag.get("sources", []),
-            "score": score,
-        })
-
-    numeric_scores = []
-    for r in results:
-        s = r["score"].get("score")
-        if isinstance(s, (int, float)):
-            numeric_scores.append(float(s))
-    report = {
-        "num_questions": len(results),
-        "judge_mode": args.judge,
-        "average_score": mean(numeric_scores) if numeric_scores else None,
-        "results": results,
-    }
+    if args.compare_modes:
+        modes = {
+            "retrieved_context": evaluate_rows(rows, use_llm=False, judge=args.judge, judge_model=args.judge_model),
+            "generated_answer": evaluate_rows(rows, use_llm=True, judge=args.judge, judge_model=args.judge_model),
+        }
+        best_mode = max(
+            modes,
+            key=lambda mode: modes[mode]["average_score"]
+            if modes[mode]["average_score"] is not None
+            else -1,
+        )
+        report = {
+            "comparison_type": "answer_mode",
+            "best_mode": best_mode,
+            "modes": modes,
+        }
+    else:
+        report = evaluate_rows(
+            rows,
+            use_llm=args.use_llm,
+            judge=args.judge,
+            judge_model=args.judge_model,
+        )
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, indent=2), encoding="utf-8")
-    print(f"Questions: {len(results)}")
-    print(f"Average score: {report['average_score']}")
+    if args.compare_modes:
+        print(f"Best mode: {report['best_mode']}")
+    else:
+        print(f"Questions: {report['num_questions']}")
+        print(f"Average score: {report['average_score']}")
     print(f"Saved: {args.out}")
 
 

@@ -176,6 +176,17 @@ python evaluation/retrieval_eval.py \
   --k 5
 ```
 
+Compare baseline lexical retrieval against the expanded/diversified retrieval
+strategy used by the app:
+
+```bash
+python evaluation/retrieval_eval.py \
+  --questions evaluation/ground_truth.csv \
+  --output artifacts/retrieval_strategy_comparison.json \
+  --k 5 \
+  --compare-strategies
+```
+
 Offline answer-context smoke evaluation from the CSV fixture:
 
 ```bash
@@ -186,6 +197,12 @@ Run generated-answer evaluation with a configured LLM key:
 
 ```bash
 python evaluation/llm_eval.py --use-llm --limit 5
+```
+
+Compare retrieved-context scoring against generated-answer scoring:
+
+```bash
+python evaluation/llm_eval.py --compare-modes --limit 5
 ```
 
 The copied `evaluation/ground_truth.csv` and `evaluation/questions.csv` provide
@@ -200,6 +217,12 @@ Queries and feedback are logged locally to:
 logs/queries.jsonl
 ```
 
+Run the monitoring dashboard with at least five reviewer-visible charts:
+
+```bash
+streamlit run monitoring/dashboard.py --server.port 8502
+```
+
 ## Docker
 
 ```bash
@@ -207,8 +230,9 @@ docker compose build
 docker compose up
 ```
 
-The API is exposed at `http://localhost:8000` and Streamlit at
-`http://localhost:8501`. Runtime secrets are read from local `.env`, which is
+The API is exposed at `http://localhost:8000`, Streamlit at
+`http://localhost:8501`, and the monitoring dashboard at
+`http://localhost:8502`. Runtime secrets are read from local `.env`, which is
 ignored by git and excluded from the Docker build context. The compose file
 uses variable interpolation so sanitized config can be checked with:
 

@@ -65,17 +65,26 @@ def diversify_by_collection(results: list[dict], num_results: int) -> list[dict]
     return selected
 
 
-def search(query: str, num_results: int = 5, collection: str | None = None) -> list[dict]:
+def search(
+    query: str,
+    num_results: int = 5,
+    collection: str | None = None,
+    strategy: str = "expanded",
+) -> list[dict]:
+    if strategy not in {"baseline", "expanded"}:
+        raise ValueError("strategy must be one of: baseline, expanded")
+
     index = load_index()
-    boost = {"source_name": 2.5, "content": 1.0}
+    boost = {"source_name": 2.5, "content": 1.0} if strategy == "expanded" else {"content": 1.0}
     filter_dict = {"collection": collection} if collection else {}
+    query_text = expand_query(query) if strategy == "expanded" else query
     raw_results = index.search(
-        query=expand_query(query),
+        query=query_text,
         boost_dict=boost,
         filter_dict=filter_dict,
         num_results=num_results if collection else max(num_results * 4, num_results),
     )
-    if collection:
+    if collection or strategy == "baseline":
         return raw_results
     return diversify_by_collection(raw_results, num_results)
 
@@ -85,9 +94,13 @@ def main() -> None:
     parser.add_argument("query")
     parser.add_argument("--collection", default=None)
     parser.add_argument("--num-results", type=int, default=5)
+    parser.add_argument("--strategy", choices=["baseline", "expanded"], default="expanded")
     args = parser.parse_args()
 
-    for i, r in enumerate(search(args.query, args.num_results, args.collection), start=1):
+    for i, r in enumerate(
+        search(args.query, args.num_results, args.collection, args.strategy),
+        start=1,
+    ):
         print(f"\n[{i}] {r.get('source_name')} | {r.get('collection')}")
         print(r.get("source_url", ""))
         print(r.get("content", "")[:700].replace("\n", " "))

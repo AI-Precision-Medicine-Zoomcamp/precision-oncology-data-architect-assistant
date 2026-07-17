@@ -29,7 +29,15 @@ def log_event(event: dict[str, Any], path: Path = DEFAULT_LOG_PATH) -> None:
         f.write(json.dumps(event, ensure_ascii=False) + "\n")
 
 
-def log_query(query: str, answer: str, sources: list[dict], usage: Any | None = None, path: Path = DEFAULT_LOG_PATH) -> None:
+def log_query(
+    query: str,
+    answer: str,
+    sources: list[dict],
+    usage: Any | None = None,
+    provider: str | None = None,
+    model: str | None = None,
+    path: Path = DEFAULT_LOG_PATH,
+) -> None:
     log_event(
         {
             "event_type": "query",
@@ -37,6 +45,8 @@ def log_query(query: str, answer: str, sources: list[dict], usage: Any | None = 
             "answer_preview": answer[:1000],
             "sources": sources,
             "usage": str(usage) if usage else None,
+            "provider": provider,
+            "model": model,
         },
         path=path,
     )

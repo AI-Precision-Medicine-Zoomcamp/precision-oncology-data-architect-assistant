@@ -8,6 +8,7 @@ from evaluation.retrieval_eval import (
     reciprocal_rank,
     SourceEvaluationRecord,
     source_recall_at_k,
+    run_strategy_comparison,
 )
 
 
@@ -62,3 +63,26 @@ def test_source_report_excludes_non_indexed_source_labels() -> None:
 
     assert report["overall"]["count"] == 0
     assert report["excluded_records"][0]["question_id"] == "q1"
+
+
+def test_strategy_comparison_selects_highest_recall(monkeypatch, tmp_path) -> None:
+    path = tmp_path / "questions.csv"
+    path.write_text(
+        "id,question,expected_answer,expected_sources,category\n"
+        "q1,question,answer,mcode,test\n",
+        encoding="utf-8",
+    )
+
+    def fake_search(query, num_results, strategy):
+        if strategy == "baseline":
+            return [{"id": "a", "collection": "fhir_r4_core"}]
+        return [{"id": "b", "collection": "mcode"}]
+
+    import src.retrieval.search as search_module
+
+    monkeypatch.setattr(search_module, "search", fake_search)
+
+    report = run_strategy_comparison(path, k=1, strategies=("baseline", "expanded"))
+
+    assert report["best_strategy"] == "expanded"
+    assert set(report["strategies"]) == {"baseline", "expanded"}

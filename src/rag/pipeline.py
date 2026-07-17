@@ -215,6 +215,8 @@ def answer_question(
             answer=payload["answer"],
             sources=payload["sources"],
             usage=payload["usage"],
+            provider=payload["provider"],
+            model=payload["model"],
         )
 
     return payload

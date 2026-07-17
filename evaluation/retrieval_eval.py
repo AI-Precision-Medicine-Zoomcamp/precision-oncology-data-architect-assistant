@@ -317,13 +317,13 @@ def build_source_report(records: list[SourceEvaluationRecord], k: int) -> dict:
     }
 
 
-def run_live_csv_evaluation(path: Path, k: int) -> dict:
+def run_live_csv_evaluation(path: Path, k: int, strategy: str = "expanded") -> dict:
     """Run retrieval against the active local Minsearch index for CSV fixtures."""
     from src.retrieval.search import search
 
     records: list[SourceEvaluationRecord] = []
     for row in load_csv_questions(path):
-        results = search(row["question"], num_results=k)
+        results = search(row["question"], num_results=k, strategy=strategy)
         records.append(
             SourceEvaluationRecord(
                 question_id=str(row["id"]),
@@ -336,7 +336,31 @@ def run_live_csv_evaluation(path: Path, k: int) -> dict:
                 retrieved_chunk_ids=tuple(str(result.get("id", "")) for result in results),
             )
         )
-    return build_source_report(records, k)
+    report = build_source_report(records, k)
+    report["strategy"] = strategy
+    return report
+
+
+def run_strategy_comparison(path: Path, k: int, strategies: Sequence[str]) -> dict:
+    """Evaluate multiple retrieval strategies and pick the highest-recall run."""
+    runs = {
+        strategy: run_live_csv_evaluation(path, k, strategy=strategy)
+        for strategy in strategies
+    }
+    best_strategy = max(
+        runs,
+        key=lambda strategy: (
+            runs[strategy]["overall"]["recall_at_k"],
+            runs[strategy]["overall"]["mean_reciprocal_rank"],
+            runs[strategy]["overall"]["ndcg_at_k"],
+        ),
+    )
+    return {
+        "k": k,
+        "comparison_type": "retrieval_strategy",
+        "best_strategy": best_strategy,
+        "strategies": runs,
+    }
 
 
 def main() -> None:
@@ -345,6 +369,17 @@ def main() -> None:
     parser.add_argument("--results", type=Path)
     parser.add_argument("--k", type=int, default=5)
     parser.add_argument("--output", type=Path)
+    parser.add_argument(
+        "--strategy",
+        choices=["baseline", "expanded"],
+        default="expanded",
+        help="Retrieval strategy used for live CSV evaluation.",
+    )
+    parser.add_argument(
+        "--compare-strategies",
+        action="store_true",
+        help="Compare baseline retrieval against expanded/diversified retrieval.",
+    )
     args = parser.parse_args()
 
     if args.k < 1:
@@ -353,8 +388,10 @@ def main() -> None:
     if args.results:
         records = join_records(load_jsonl(args.questions), load_jsonl(args.results))
         report = build_report(records, args.k)
+    elif args.compare_strategies:
+        report = run_strategy_comparison(args.questions, args.k, ("baseline", "expanded"))
     else:
-        report = run_live_csv_evaluation(args.questions, args.k)
+        report = run_live_csv_evaluation(args.questions, args.k, args.strategy)
     rendered = json.dumps(report, indent=2, sort_keys=True)
     print(rendered)
 

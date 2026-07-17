@@ -22,6 +22,22 @@ Metrics:
 - `excluded_records`: rows reserved for answer/safety evaluation because their
   expected labels are not indexed source collections
 
+Compare the active retrieval strategy with the baseline:
+
+```bash
+python evaluation/retrieval_eval.py \
+  --questions evaluation/ground_truth.csv \
+  --output artifacts/retrieval_strategy_comparison.json \
+  --k 5 \
+  --compare-strategies
+```
+
+The comparison evaluates:
+
+- `baseline`: plain lexical Minsearch over chunk content
+- `expanded`: domain query expansion, source-name boosting, and collection
+  diversification
+
 Input:
 
 - `evaluation/ground_truth.csv`
@@ -44,6 +60,12 @@ With a configured provider key, generated answers can be evaluated:
 
 ```bash
 python evaluation/llm_eval.py --use-llm --limit 5
+```
+
+Compare retrieved-context scoring against generated-answer scoring:
+
+```bash
+python evaluation/llm_eval.py --compare-modes --limit 5
 ```
 
 With an OpenAI key, an LLM judge can be used:

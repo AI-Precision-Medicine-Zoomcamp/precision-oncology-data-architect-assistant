@@ -29,6 +29,15 @@ def test_search_expands_domain_shorthand_before_querying(monkeypatch):
     assert "primary cancer condition" in fake_index.calls[0]["query"].lower()
 
 
+def test_baseline_strategy_does_not_expand_query(monkeypatch):
+    fake_index = FakeIndex()
+    monkeypatch.setattr(search_module, "load_index", lambda: fake_index)
+
+    search_module.search("How should NSCLC be represented?", num_results=3, strategy="baseline")
+
+    assert fake_index.calls[0]["query"] == "How should NSCLC be represented?"
+
+
 def test_search_passes_collection_filter_when_collection_is_provided(monkeypatch):
     fake_index = FakeIndex()
     monkeypatch.setattr(search_module, "load_index", lambda: fake_index)
@@ -36,6 +45,18 @@ def test_search_passes_collection_filter_when_collection_is_provided(monkeypatch
     search_module.search("EGFR Exon19del", num_results=3, collection="mcode")
 
     assert fake_index.calls[0]["filter_dict"] == {"collection": "mcode"}
+
+
+def test_search_rejects_unknown_strategy(monkeypatch):
+    fake_index = FakeIndex()
+    monkeypatch.setattr(search_module, "load_index", lambda: fake_index)
+
+    try:
+        search_module.search("EGFR", strategy="unknown")
+    except ValueError as exc:
+        assert "strategy" in str(exc)
+    else:
+        raise AssertionError("Expected ValueError")
 
 
 def test_diversify_by_collection_prefers_distinct_collections_first():
