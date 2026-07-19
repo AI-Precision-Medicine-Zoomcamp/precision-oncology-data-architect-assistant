@@ -189,8 +189,6 @@ Expected release behavior:
 ## Notes For Reviewers
 
 - `.env` is intentionally ignored and should not be committed.
-- The active runtime uses Minsearch. The older ChromaDB/vector path is kept as
-  legacy reference code and is not required for the main Streamlit or FastAPI
-  flow.
+- The active runtime uses Minsearch for the main Streamlit and FastAPI flow.
 - The project is an educational prototype for healthcare data modeling, not a
   clinical decision-support tool.

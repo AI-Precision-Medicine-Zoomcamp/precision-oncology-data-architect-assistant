@@ -97,13 +97,6 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-The active app uses Minsearch. The older ChromaDB/vector embedding path is
-kept for reference and can be installed only when needed:
-
-```bash
-pip install -r requirements-legacy.txt
-```
-
 Build or refresh the local retrieval index:
 
 ```bash

@@ -1,6 +1,0 @@
-# Optional dependencies for the legacy ChromaDB/vector embedding path.
-# The active capstone runtime uses Minsearch and does not require these.
-
-chromadb==0.5.3
-sentence-transformers==2.7.0
-anthropic==0.34.2
