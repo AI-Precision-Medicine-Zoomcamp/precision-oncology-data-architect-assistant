@@ -1,0 +1,383 @@
+{
+  "by_category": {
+    "architecture": {
+      "count": 1,
+      "mean_reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "recall_at_k": 1.0
+    },
+    "biomarker_modeling": {
+      "count": 1,
+      "mean_reciprocal_rank": 1.0,
+      "ndcg_at_k": 0.6131471927654584,
+      "recall_at_k": 0.5
+    },
+    "bundle_design": {
+      "count": 1,
+      "mean_reciprocal_rank": 1.0,
+      "ndcg_at_k": 0.6131471927654584,
+      "recall_at_k": 0.5
+    },
+    "diagnosis_modeling": {
+      "count": 1,
+      "mean_reciprocal_rank": 1.0,
+      "ndcg_at_k": 0.6131471927654584,
+      "recall_at_k": 0.5
+    },
+    "genomics_modeling": {
+      "count": 1,
+      "mean_reciprocal_rank": 1.0,
+      "ndcg_at_k": 0.8772153153380493,
+      "recall_at_k": 1.0
+    },
+    "molecular_report": {
+      "count": 3,
+      "mean_reciprocal_rank": 1.0,
+      "ndcg_at_k": 0.7420981285103055,
+      "recall_at_k": 0.6666666666666666
+    },
+    "profile_selection": {
+      "count": 1,
+      "mean_reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "recall_at_k": 1.0
+    },
+    "resource_relationships": {
+      "count": 1,
+      "mean_reciprocal_rank": 0.5,
+      "ndcg_at_k": 0.38685280723454163,
+      "recall_at_k": 0.5
+    },
+    "specimen": {
+      "count": 1,
+      "mean_reciprocal_rank": 1.0,
+      "ndcg_at_k": 0.6131471927654584,
+      "recall_at_k": 0.5
+    },
+    "staging": {
+      "count": 1,
+      "mean_reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "recall_at_k": 1.0
+    },
+    "terminology": {
+      "count": 1,
+      "mean_reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "recall_at_k": 1.0
+    }
+  },
+  "excluded_records": [
+    {
+      "category": "safety_scope",
+      "expected_sources": [
+        "project_scope"
+      ],
+      "question_id": "Q010",
+      "reason": "expected source is not an indexed collection"
+    },
+    {
+      "category": "safety_scope",
+      "expected_sources": [
+        "evaluation"
+      ],
+      "question_id": "Q014",
+      "reason": "expected source is not an indexed collection"
+    }
+  ],
+  "k": 5,
+  "overall": {
+    "count": 13,
+    "mean_reciprocal_rank": 0.9615384615384616,
+    "ndcg_at_k": 0.7648424060896416,
+    "recall_at_k": 0.7307692307692307
+  },
+  "records": [
+    {
+      "category": "diagnosis_modeling",
+      "expected_sources": [
+        "mcode",
+        "fhir_r4_core"
+      ],
+      "question_id": "Q001",
+      "retrieved_chunk_ids": [
+        "mcode::mcode-primary-cancer-condition::2",
+        "mcode::mcode-primary-cancer-condition::15",
+        "mcode::mcode-primary-cancer-condition::23",
+        "mcode::mcode-primary-cancer-condition::8",
+        "mcode::mcode-primary-cancer-condition::0"
+      ],
+      "retrieved_sources": [
+        "mcode",
+        "mcode",
+        "mcode",
+        "mcode",
+        "mcode"
+      ]
+    },
+    {
+      "category": "genomics_modeling",
+      "expected_sources": [
+        "genomics_reporting",
+        "mcode"
+      ],
+      "question_id": "Q002",
+      "retrieved_chunk_ids": [
+        "genomics_reporting::genomics-reporting-home::25",
+        "us_core::us-core-diagnosticreport-lab::35",
+        "fhir_r4_core::fhir-observation-resource::52",
+        "mcode::mcode-genomic-variant::160",
+        "genomics_reporting::genomics-reporting-home::16"
+      ],
+      "retrieved_sources": [
+        "genomics_reporting",
+        "us_core",
+        "fhir_r4_core",
+        "mcode",
+        "genomics_reporting"
+      ]
+    },
+    {
+      "category": "profile_selection",
+      "expected_sources": [
+        "mcode"
+      ],
+      "question_id": "Q003",
+      "retrieved_chunk_ids": [
+        "mcode::mcode-profiles::0",
+        "genomics_reporting::genomics-molecular-biomarker::0",
+        "mcode::mcode-profiles::1",
+        "genomics_reporting::genomics-molecular-biomarker::32",
+        "genomics_reporting::genomics-molecular-biomarker::2"
+      ],
+      "retrieved_sources": [
+        "mcode",
+        "genomics_reporting",
+        "mcode",
+        "genomics_reporting",
+        "genomics_reporting"
+      ]
+    },
+    {
+      "category": "molecular_report",
+      "expected_sources": [
+        "fhir_r4_core",
+        "genomics_reporting"
+      ],
+      "question_id": "Q004",
+      "retrieved_chunk_ids": [
+        "genomics_reporting::genomics-molecular-biomarker::32",
+        "genomics_reporting::genomics-molecular-biomarker::0",
+        "genomics_reporting::genomics-molecular-biomarker::1",
+        "genomics_reporting::genomics-molecular-biomarker::2",
+        "genomics_reporting::genomics-molecular-biomarker::7"
+      ],
+      "retrieved_sources": [
+        "genomics_reporting",
+        "genomics_reporting",
+        "genomics_reporting",
+        "genomics_reporting",
+        "genomics_reporting"
+      ]
+    },
+    {
+      "category": "molecular_report",
+      "expected_sources": [
+        "fhir_r4_core",
+        "genomics_reporting"
+      ],
+      "question_id": "Q005",
+      "retrieved_chunk_ids": [
+        "genomics_reporting::genomics-variant::224",
+        "genomics_reporting::genomics-variant::0",
+        "genomics_reporting::genomics-variant::14",
+        "genomics_reporting::genomics-variant::110",
+        "genomics_reporting::genomics-variant::44"
+      ],
+      "retrieved_sources": [
+        "genomics_reporting",
+        "genomics_reporting",
+        "genomics_reporting",
+        "genomics_reporting",
+        "genomics_reporting"
+      ]
+    },
+    {
+      "category": "architecture",
+      "expected_sources": [
+        "us_core",
+        "mcode"
+      ],
+      "question_id": "Q006",
+      "retrieved_chunk_ids": [
+        "mcode::mcode-profiles::0",
+        "us_core::us-core-home::7",
+        "mcode::mcode-profiles::1",
+        "us_core::us-core-home::8",
+        "us_core::us-core-home::0"
+      ],
+      "retrieved_sources": [
+        "mcode",
+        "us_core",
+        "mcode",
+        "us_core",
+        "us_core"
+      ]
+    },
+    {
+      "category": "biomarker_modeling",
+      "expected_sources": [
+        "mcode",
+        "fhir_r4_core"
+      ],
+      "question_id": "Q007",
+      "retrieved_chunk_ids": [
+        "mcode::mcode-tumor-marker-test::0",
+        "genomics_reporting::genomics-molecular-biomarker::2",
+        "mcode::mcode-tumor-marker-test::1",
+        "mcode::mcode-tumor-marker-test::6",
+        "mcode::mcode-tumor-marker-test::18"
+      ],
+      "retrieved_sources": [
+        "mcode",
+        "genomics_reporting",
+        "mcode",
+        "mcode",
+        "mcode"
+      ]
+    },
+    {
+      "category": "staging",
+      "expected_sources": [
+        "mcode"
+      ],
+      "question_id": "Q008",
+      "retrieved_chunk_ids": [
+        "mcode::mcode-tumor-marker-test::0",
+        "mcode::mcode-tumor-marker-test::1",
+        "mcode::mcode-tumor-marker-test::6",
+        "mcode::mcode-tumor-marker-test::18",
+        "mcode::mcode-tumor-marker-test::17"
+      ],
+      "retrieved_sources": [
+        "mcode",
+        "mcode",
+        "mcode",
+        "mcode",
+        "mcode"
+      ]
+    },
+    {
+      "category": "resource_relationships",
+      "expected_sources": [
+        "fhir_r4_core",
+        "mcode"
+      ],
+      "question_id": "Q009",
+      "retrieved_chunk_ids": [
+        "genomics_reporting::genomics-diagnosticreport::9",
+        "fhir_r4_core::fhir-diagnosticreport-resource::23",
+        "genomics_reporting::genomics-diagnosticreport::1",
+        "genomics_reporting::genomics-diagnosticreport::2",
+        "genomics_reporting::genomics-diagnosticreport::0"
+      ],
+      "retrieved_sources": [
+        "genomics_reporting",
+        "fhir_r4_core",
+        "genomics_reporting",
+        "genomics_reporting",
+        "genomics_reporting"
+      ]
+    },
+    {
+      "category": "molecular_report",
+      "expected_sources": [
+        "genomics_reporting"
+      ],
+      "question_id": "Q011",
+      "retrieved_chunk_ids": [
+        "genomics_reporting::genomics-diagnosticreport::2",
+        "genomics_reporting::genomics-diagnosticreport::0",
+        "genomics_reporting::genomics-diagnosticreport::9",
+        "genomics_reporting::genomics-diagnosticreport::4",
+        "genomics_reporting::genomics-diagnosticreport::1"
+      ],
+      "retrieved_sources": [
+        "genomics_reporting",
+        "genomics_reporting",
+        "genomics_reporting",
+        "genomics_reporting",
+        "genomics_reporting"
+      ]
+    },
+    {
+      "category": "specimen",
+      "expected_sources": [
+        "fhir_r4_core",
+        "genomics_reporting"
+      ],
+      "question_id": "Q012",
+      "retrieved_chunk_ids": [
+        "genomics_reporting::genomics-reporting-home::0",
+        "genomics_reporting::genomics-reporting-home::1",
+        "genomics_reporting::genomics-reporting-home::30",
+        "genomics_reporting::genomics-reporting-home::6",
+        "genomics_reporting::genomics-reporting-home::2"
+      ],
+      "retrieved_sources": [
+        "genomics_reporting",
+        "genomics_reporting",
+        "genomics_reporting",
+        "genomics_reporting",
+        "genomics_reporting"
+      ]
+    },
+    {
+      "category": "bundle_design",
+      "expected_sources": [
+        "fhir_r4_core",
+        "mcode"
+      ],
+      "question_id": "Q013",
+      "retrieved_chunk_ids": [
+        "fhir_r4_core::fhir-diagnosticreport-resource::23",
+        "fhir_r4_core::fhir-specimen-resource::12",
+        "fhir_r4_core::fhir-diagnosticreport-resource::13",
+        "fhir_r4_core::fhir-condition-resource::25",
+        "fhir_r4_core::fhir-diagnosticreport-resource::12"
+      ],
+      "retrieved_sources": [
+        "fhir_r4_core",
+        "fhir_r4_core",
+        "fhir_r4_core",
+        "fhir_r4_core",
+        "fhir_r4_core"
+      ]
+    },
+    {
+      "category": "terminology",
+      "expected_sources": [
+        "fhir_r4_core",
+        "mcode",
+        "genomics_reporting"
+      ],
+      "question_id": "Q015",
+      "retrieved_chunk_ids": [
+        "fhir_r4_core::fhir-r4-overview::2",
+        "mcode::mcode-genomic-variant::0",
+        "genomics_reporting::genomics-reporting-home::0",
+        "us_core::us-core-diagnosticreport-lab::35",
+        "mcode::mcode-cancer-disease-status::0"
+      ],
+      "retrieved_sources": [
+        "fhir_r4_core",
+        "mcode",
+        "genomics_reporting",
+        "us_core",
+        "mcode"
+      ]
+    }
+  ],
+  "relevance_granularity": "source_collection",
+  "strategy": "expanded"
+}
