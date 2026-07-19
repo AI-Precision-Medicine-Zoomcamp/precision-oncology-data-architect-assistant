@@ -64,10 +64,6 @@ flowchart LR
     UI --> Logs
 ```
 
-A separate legacy/experimental path supports parsing FHIR JSON bundles,
-embedding typed chunks, and storing them in ChromaDB. That path is not used by
-the current Streamlit or FastAPI runtime.
-
 See [docs/architecture.md](docs/architecture.md) for the complete project,
 module dependency, data flow, folder structure, and query sequence diagrams.
 

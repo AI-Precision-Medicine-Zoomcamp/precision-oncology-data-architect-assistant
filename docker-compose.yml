@@ -5,8 +5,6 @@ services:
     command: uvicorn app.api:app --host 0.0.0.0 --port 8000
     environment:
       DATA_DIR: /app/data
-      FHIR_BUNDLES_DIR: /app/data/fhir_examples
-      CHROMA_PERSIST_DIR: /app/data/chroma_db
       LLM_PROVIDER: ${LLM_PROVIDER:-groq}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       GROQ_MODEL: ${GROQ_MODEL:-llama-3.1-8b-instant}

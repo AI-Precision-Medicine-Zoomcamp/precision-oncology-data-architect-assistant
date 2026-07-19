@@ -1,31 +1,24 @@
-# Environments
+# Environment files
 .env
 .venv/
 env/
 venv/
 
-# Python / Cache
+# Python caches
 __pycache__/
-*.pyc
+*.py[cod]
 .pytest_cache/
 
-# Data & Vector Databases
-chroma_db/
-*.csv
-!evaluation/ground_truth.csv
-!evaluation/questions.csv
-*.json
-*.parquet
-*.sqlite3
-
-# OS Files
-.DS_Store
-
-.env
-.venv/
-__pycache__/
+# Generated data, indexes, and local logs
 data/raw/
+data/processed/
 data/indexes/
 logs/
+
+# Local database files
 *.db
 *.sqlite
+*.sqlite3
+
+# OS files
+.DS_Store

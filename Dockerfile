@@ -18,7 +18,7 @@ RUN python -m pip install --upgrade pip \
 COPY . .
 
 RUN useradd --create-home --uid 10001 appuser \
-    && mkdir -p /app/data/chroma_db /app/artifacts \
+    && mkdir -p /app/data /app/artifacts /app/logs \
     && chown -R appuser:appuser /app
 
 USER appuser

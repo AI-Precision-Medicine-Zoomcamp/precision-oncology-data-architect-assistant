@@ -2,24 +2,22 @@
 
 ## Architectural Overview
 
-The Precision Oncology Data Architect Assistant is a retrieval-augmented generation
-(RAG) application for questions about FHIR R4, US Core, mCODE, and the Genomics
-Reporting Implementation Guide.
+The Precision Oncology Data Architect Assistant is a retrieval-augmented
+generation application for questions about FHIR R4, US Core, mCODE, and the
+Genomics Reporting Implementation Guide.
 
-The active application uses a lightweight lexical retrieval pipeline:
+The active application uses a lightweight local retrieval pipeline:
 
-1. A YAML manifest identifies canonical public standards pages.
-2. The ingestion commands download and clean those pages.
-3. Clean text is split into overlapping chunks and stored as JSON Lines.
-4. A Minsearch index is built and serialized to disk.
-5. The FastAPI endpoint, Streamlit UI, or service interface retrieves relevant chunks.
-6. The RAG pipeline sends the question and retrieved context to the configured LLM.
-7. Query metadata and user feedback are appended to a local JSONL telemetry log.
-
-The repository also contains a legacy/experimental semantic retrieval path for FHIR
-JSON bundles. It parses bundles into typed models, creates embeddings, and stores
-them in ChromaDB. That path is not called by the current FastAPI, Streamlit, or
-service workflow.
+1. `data/source_manifest.yaml` identifies canonical public standards pages.
+2. `src/ingestion/download_sources.py` downloads and cleans those pages.
+3. `src/ingestion/ingest_documents.py` splits clean text into JSONL chunks.
+4. `src/retrieval/build_index.py` builds a serialized Minsearch index.
+5. `app/api.py`, `app/streamlit_app.py`, and `src/api/service.py` retrieve
+   relevant chunks through `src/retrieval/search.py`.
+6. `src/rag/pipeline.py` either returns retrieved context directly or sends
+   grounded context to the configured Groq, OpenRouter, or OpenAI model.
+7. `monitoring/telemetry.py` appends query and feedback events to local JSONL
+   logs for review in `monitoring/dashboard.py`.
 
 ## 1. Project Architecture Diagram
 
@@ -30,57 +28,54 @@ flowchart TB
     subgraph Interfaces
         UI[Streamlit UI<br/>app/streamlit_app.py]
         API[FastAPI API<br/>app/api.py]
-        Service[Stable Python service<br/>src/api/service.py]
-        SearchCLI[Search CLI]
+        Service[Python service<br/>src/api/service.py]
         Eval[Evaluation scripts]
     end
 
-    subgraph Active["Active RAG runtime"]
-        RAG[RAG orchestration<br/>src/rag/pipeline.py]
-        Search[Minsearch adapter<br/>src/retrieval/search.py]
+    subgraph Ingestion["Offline knowledge-base build"]
+        Manifest[data/source_manifest.yaml]
+        Downloader[Download and clean HTML<br/>src/ingestion/download_sources.py]
+        Raw[(Raw text and metadata<br/>data/raw/)]
+        Chunker[Chunk documents<br/>src/ingestion/ingest_documents.py]
+        Chunks[(Processed chunks<br/>data/processed/chunks.jsonl)]
+        Builder[Build Minsearch index<br/>src/retrieval/build_index.py]
         Index[(Serialized Minsearch index<br/>data/indexes/minsearch_index.pkl)]
+    end
+
+    subgraph Runtime["Active RAG runtime"]
+        Search[Search adapter<br/>src/retrieval/search.py]
+        RAG[RAG orchestration<br/>src/rag/pipeline.py]
         Provider{Configured LLM provider}
-        Groq[Groq API]
-        OpenRouter[OpenRouter API]
-        OpenAI[OpenAI API]
+        Groq[Groq]
+        OpenRouter[OpenRouter]
+        OpenAI[OpenAI]
         Telemetry[Telemetry logger<br/>monitoring/telemetry.py]
         Logs[(Query and feedback log<br/>logs/queries.jsonl)]
     end
 
-    subgraph Ingestion["Active documentation ingestion"]
-        Manifest[data/source_manifest.yaml]
-        Downloader[Download and clean HTML<br/>src/ingestion/download_sources.py]
-        Raw[(Raw HTML, text, metadata<br/>data/raw/)]
-        Chunker[Chunk documents<br/>src/ingestion/ingest_documents.py]
-        Chunks[(Processed chunks<br/>data/processed/chunks.jsonl)]
-        Builder[Build lexical index<br/>src/retrieval/build_index.py]
-    end
-
-    subgraph Legacy["Legacy / experimental semantic path"]
-        Bundles[(FHIR JSON bundles<br/>data/fhir_examples/)]
-        Parser[FHIR bundle parser]
-        LegacyChunker[Typed document chunker]
-        Embeddings[Embedding provider]
-        Chroma[(ChromaDB vector store)]
-        LegacyRetriever[Semantic retriever]
-    end
-
     Standards[HL7 standards websites]
+
+    Standards --> Downloader
+    Manifest --> Downloader
+    Downloader --> Raw
+    Raw --> Chunker
+    Chunker --> Chunks
+    Chunks --> Builder
+    Builder --> Index
 
     User --> UI
     User --> API
     User --> Service
     UI --> Service
     API --> Service
-    UI --> Search
     Service --> RAG
     Service --> Search
-    SearchCLI --> Search
+    UI --> Search
     Eval --> Search
     Eval --> RAG
 
-    RAG --> Search
     Search --> Index
+    RAG --> Search
     RAG --> Provider
     Provider --> Groq
     Provider --> OpenRouter
@@ -88,34 +83,12 @@ flowchart TB
     RAG --> Telemetry
     UI --> Telemetry
     Telemetry --> Logs
-
-    Manifest --> Downloader
-    Standards --> Downloader
-    Downloader --> Raw
-    Raw --> Chunker
-    Chunker --> Chunks
-    Chunks --> Builder
-    Builder --> Index
-
-    Bundles --> Parser
-    Parser --> LegacyChunker
-    LegacyChunker --> Embeddings
-    Embeddings --> Chroma
-    LegacyRetriever --> Embeddings
-    LegacyRetriever --> Chroma
-
-    classDef active fill:#dff4ff,stroke:#1677a3,color:#111;
-    classDef storage fill:#fff3cd,stroke:#9a7500,color:#111;
-    classDef legacy fill:#f1e8ff,stroke:#7253a3,color:#111;
-    class UI,API,Service,SearchCLI,Eval,RAG,Search,Provider,Groq,OpenRouter,OpenAI,Telemetry,Manifest,Downloader,Chunker,Builder active;
-    class Index,Logs,Raw,Chunks,Bundles,Chroma storage;
-    class Parser,LegacyChunker,Embeddings,LegacyRetriever legacy;
 ```
 
 ## 2. Module Dependency Diagram
 
-Solid arrows below represent Python imports or direct calls in the current
-application. The legacy branch is isolated from the active runtime.
+Solid arrows represent Python imports or direct calls in the current
+application.
 
 ```mermaid
 flowchart LR
@@ -125,21 +98,13 @@ flowchart LR
     RAG[src.rag.pipeline]
     Search[src.retrieval.search]
     Telemetry[monitoring.telemetry]
+    Dashboard[monitoring.dashboard]
+    Metrics[monitoring.metrics]
     Build[src.retrieval.build_index]
     Download[src.ingestion.download_sources]
     Ingest[src.ingestion.ingest_documents]
     RetEval[evaluation.retrieval_eval]
     LLMEval[evaluation.llm_eval]
-
-    LegacyIngest[src.ingestion_legacy]
-    Parser[src.fhir_parser]
-    DocChunker[src.chunker]
-    Models[src.models]
-    Embed[src.embeddings]
-    Store[src.vector_store]
-    Retriever[src.retriever]
-    Config[src.config]
-    LLMClient[src.llm_client]
 
     Streamlit --> Service
     Streamlit --> Search
@@ -149,60 +114,14 @@ flowchart LR
     Service --> Search
     RAG --> Search
     RAG --> Telemetry
+    Dashboard --> Metrics
     RetEval --> Search
     LLMEval --> RAG
-
     Build --> Minsearch[minsearch]
     Search --> Minsearch
     Download --> Requests[requests]
     Download --> BS4[BeautifulSoup]
     Download --> YAML[PyYAML]
-
-    LegacyIngest --> Parser
-    LegacyIngest --> DocChunker
-    LegacyIngest --> Embed
-    LegacyIngest --> Store
-    LegacyIngest --> Models
-    LegacyIngest --> Config
-    Parser --> Models
-    DocChunker --> Models
-    Embed --> Config
-    Store --> Config
-    Store --> Models
-    Retriever --> Embed
-    Retriever --> Store
-    Retriever --> Models
-    Retriever --> Config
-    LLMClient --> Config
-
-    subgraph Current["Current application modules"]
-        Streamlit
-        API
-        Service
-        RAG
-        Search
-        Telemetry
-        RetEval
-        LLMEval
-    end
-
-    subgraph Offline["Offline build modules"]
-        Download
-        Ingest
-        Build
-    end
-
-    subgraph Experimental["Legacy / experimental modules"]
-        LegacyIngest
-        Parser
-        DocChunker
-        Models
-        Embed
-        Store
-        Retriever
-        Config
-        LLMClient
-    end
 ```
 
 ## 3. Data Flow Diagram
@@ -214,7 +133,7 @@ flowchart LR
         B[HTTP download]
         C[Raw HTML]
         D[Clean plain text]
-        E[Source metadata and checksums]
+        E[Source metadata]
         F[Overlapping text chunks]
         G[JSONL chunk records]
         H[Minsearch fit]
@@ -234,24 +153,22 @@ flowchart LR
     subgraph QueryTime["Runtime query flow"]
         Q[User question]
         Mode{Selected mode}
-        Load[Load pickled index]
-        Retrieve[Weighted lexical search<br/>source_name 1.5, content 1.0]
+        Retrieve[Weighted lexical search<br/>source_name 2.5, content 1.0]
         Context[Top-k context chunks and source metadata]
         Key{LLM key available?}
         Prompt[System prompt + context + question]
         Generate[Provider LLM generation]
         Fallback[Context-only fallback]
         Result[Answer, contexts, sources,<br/>provider, model, usage]
-        Display[Streamlit rendering or service response]
+        Display[Streamlit rendering or API response]
         QueryLog[(Query telemetry)]
         Feedback[Helpful / needs improvement]
         FeedbackLog[(Feedback telemetry)]
 
         Q --> Mode
-        Mode -->|Search only| Load
-        Mode -->|RAG answer| Load
-        I --> Load
-        Load --> Retrieve
+        Mode -->|Search only| Retrieve
+        Mode -->|RAG answer| Retrieve
+        I --> Retrieve
         Q --> Retrieve
         Retrieve --> Context
         Context -->|Search only| Display
@@ -270,7 +187,7 @@ flowchart LR
     end
 ```
 
-### Principal data contracts
+## 4. Principal Data Contracts
 
 | Artifact | Format | Producer | Consumer |
 |---|---|---|---|
@@ -278,40 +195,26 @@ flowchart LR
 | `data/raw/<collection>/*` | HTML, clean text, metadata JSON | Source downloader | Document ingestion |
 | `data/processed/chunks.jsonl` | One searchable chunk per JSON line | Document ingestion | Index builder |
 | `data/indexes/minsearch_index.pkl` | Pickled Minsearch index | Index builder | Runtime search |
-| RAG result | Python dictionary | RAG pipeline | Service and Streamlit UI |
-| `logs/queries.jsonl` | Append-only JSON events | Telemetry module | Local monitoring/review |
+| RAG result | Python dictionary | RAG pipeline | Service, API, and Streamlit UI |
+| `logs/queries.jsonl` | Append-only JSON events | Telemetry module | Monitoring dashboard |
 
-## 4. Folder Structure
+## 5. Folder Structure
 
-Generated artifacts and representative data files are included because they are
-part of the checked-in runtime. Cache directories and every individual downloaded
-standards page are omitted for readability.
+Generated data and index files are intentionally excluded from git and can be
+rebuilt from the public source manifest.
 
 ```text
 .
 ├── app/
-│   ├── __init__.py
 │   ├── api.py                         # FastAPI endpoints
 │   └── streamlit_app.py               # Interactive UI and feedback controls
+├── artifacts/
+│   ├── retrieval_metrics.json         # Latest retrieval metric output
+│   └── retrieval_strategy_comparison.json
 ├── data/
-│   ├── evaluation_questions/
-│   │   └── nsclc_questions.json
-│   ├── fhir_examples/                 # Example FHIR bundles for legacy parsing
-│   ├── indexes/
-│   │   └── minsearch_index.pkl        # Active serialized retrieval index
-│   ├── processed/
-│   │   └── chunks.jsonl               # Active searchable chunk corpus
-│   ├── raw/
-│   │   ├── fhir_r4_core/
-│   │   ├── genomics_reporting/
-│   │   ├── mcode/
-│   │   ├── us_core/
-│   │   └── download_report.json
-│   ├── sample/
-│   └── source_manifest.yaml
+│   └── source_manifest.yaml           # Public standards source manifest
 ├── docs/
-│   ├── architecture.md                # Detailed architecture documentation
-│   ├── clawbio_integration.md
+│   ├── architecture.md
 │   ├── course_requirements.md
 │   ├── data_sources.md
 │   ├── evaluation.md
@@ -320,50 +223,24 @@ standards page are omitted for readability.
 │   └── rubric_scorecard.md
 ├── evaluation/
 │   ├── ground_truth.csv
-│   ├── llm_eval.py                    # Heuristic or LLM-as-judge evaluation
+│   ├── llm_eval.py
 │   ├── questions.csv
-│   └── retrieval_eval.py              # Recall@k, MRR, and nDCG evaluation
+│   └── retrieval_eval.py
 ├── ingestion/
-│   └── index_to_vectordb.py            # Compatibility entrypoint for index build
-├── logs/
-│   └── queries.jsonl                  # Local query and feedback events
+│   └── index_to_vectordb.py           # Compatibility entrypoint for index build
 ├── monitoring/
+│   ├── dashboard.py
+│   ├── metrics.py
 │   └── telemetry.py
-├── notebooks/                         # Reserved for analysis notebooks
-├── scripts/                           # Reserved for utility scripts
 ├── src/
-│   ├── api/
-│   │   └── service.py                 # Stable application-facing interface
-│   ├── evaluation/                    # Thin wrappers around evaluation scripts
-│   ├── ingestion/
-│   │   ├── download_sources.py        # Manifest-driven downloader and cleaner
-│   │   └── ingest_documents.py        # Active text chunking pipeline
-│   ├── rag/
-│   │   ├── pipeline.py                # Active RAG and provider routing
-│   │   └── pipeline_openai_backup.py  # Earlier OpenAI-only implementation
-│   ├── retrieval/
-│   │   ├── build_index.py             # Active Minsearch index builder
-│   │   └── search.py                  # Active runtime retrieval
-│   ├── chunker.py                     # Legacy typed document chunking
-│   ├── config.py                      # Legacy provider/vector settings
-│   ├── embeddings.py                  # Legacy embedding abstraction
-│   ├── fhir_parser.py                 # Legacy FHIR bundle parser
-│   ├── ingestion_legacy.py            # Legacy semantic ingestion orchestration
-│   ├── llm_client.py                  # Experimental multi-provider abstraction
-│   ├── models.py                      # Pydantic domain models
-│   ├── retriever.py                   # Legacy semantic retriever
-│   └── vector_store.py                # Legacy ChromaDB abstraction
+│   ├── api/service.py                 # Stable application-facing interface
+│   ├── ingestion/download_sources.py  # Manifest-driven downloader and cleaner
+│   ├── ingestion/ingest_documents.py  # Active text chunking pipeline
+│   ├── rag/pipeline.py                # Active RAG and provider routing
+│   └── retrieval/
+│       ├── build_index.py             # Active Minsearch index builder
+│       └── search.py                  # Active runtime retrieval
 ├── tests/
-│   ├── test_api.py
-│   ├── test_chunker.py
-│   ├── test_evaluation_files.py
-│   ├── test_llm_eval.py
-│   ├── test_manifest.py
-│   ├── test_monitoring_metrics.py
-│   ├── test_retrieval_eval.py
-│   ├── test_search.py
-│   └── test_service_interface.py
-├── .env.example
 ├── Dockerfile
 ├── docker-compose.yml
 ├── Makefile
@@ -371,7 +248,7 @@ standards page are omitted for readability.
 └── requirements.txt
 ```
 
-## 5. User Query Sequence Diagram
+## 6. User Query Sequence
 
 ```mermaid
 sequenceDiagram
@@ -382,7 +259,7 @@ sequenceDiagram
     participant Search as src.retrieval.search
     participant Index as Minsearch index
     participant LLM as Configured LLM API
-    participant Log as telemetry.py
+    participant Log as monitoring.telemetry
 
     User->>UI: Enter question, top-k, and mode
     User->>UI: Click Run
@@ -396,32 +273,19 @@ sequenceDiagram
         UI-->>User: Display retrieved context and links
     else RAG answer
         UI->>Service: run_assistant(question, top-k, use_llm)
-        alt LLM enabled
-            Service->>RAG: answer_question(question, top-k)
-            RAG->>Search: search(question, top-k)
-            Search->>Index: Load pickled index
-            Search->>Index: Weighted lexical search
-            Index-->>Search: Ranked chunks
-            Search-->>RAG: Context records
-            RAG->>RAG: Build grounded prompt
+        Service->>RAG: answer_question(question, top-k)
+        RAG->>Search: search(question, top-k)
+        Search->>Index: Load and query index
+        Index-->>Search: Ranked chunks
+        Search-->>RAG: Context records
+        RAG->>RAG: Build grounded prompt
+        alt Provider key available
             RAG->>LLM: Generate answer
-            alt Generation succeeds
-                LLM-->>RAG: Answer and usage
-                RAG->>Log: Append query event
-                RAG-->>Service: Answer, sources, contexts, metadata
-            else Provider error
-                LLM--xRAG: Error
-                RAG->>Search: Retrieve context-only fallback
-                Search-->>RAG: Context records
-                RAG-->>Service: Error notice and contexts
-            end
-        else LLM disabled or key missing
-            Service->>RAG: answer_without_llm(question, top-k)
-            RAG->>Search: search(question, top-k)
-            Search->>Index: Load and query index
-            Index-->>Search: Ranked chunks
-            Search-->>RAG: Context records
-            RAG-->>Service: Context-only response
+            LLM-->>RAG: Answer and usage
+            RAG->>Log: Append query event
+            RAG-->>Service: Answer, sources, contexts, metadata
+        else Provider key missing or generation fails
+            RAG-->>Service: Context-only fallback
         end
         Service-->>UI: Result dictionary
         UI-->>User: Display answer, context, and sources
@@ -432,26 +296,11 @@ sequenceDiagram
     end
 ```
 
-## 6. README Architecture Section
-
-The following is the concise architecture section used in the project README:
-
-> The application uses an offline ingestion pipeline and a lightweight runtime
-> RAG pipeline. Canonical FHIR R4, US Core, mCODE, and Genomics Reporting pages
-> are downloaded from a manifest, converted to clean text, split into overlapping
-> JSONL chunks, and indexed with Minsearch. At runtime, the FastAPI endpoint,
-> Streamlit UI, and reusable Python service retrieve top-ranked chunks and
-> either return them directly or pass them to the configured Groq, OpenRouter,
-> or OpenAI model.
-> Queries and user feedback are recorded in a local append-only JSONL log.
->
-> A separate legacy/experimental path supports parsing FHIR JSON bundles,
-> embedding typed chunks, and storing them in ChromaDB; it is not used by the
-> current FastAPI or Streamlit runtime.
-
 ## Implementation Notes
 
-- The active retriever is lexical Minsearch, not the ChromaDB vector store.
+- The active retriever is lexical Minsearch.
+- The active retrieval strategy is `expanded`, which adds domain query expansion,
+  source-name boosting, and collection diversification.
 - The active RAG provider router supports `groq`, `openrouter`, and `openai`.
 - The Streamlit UI explicitly detects keys for all three active providers.
 - `run_assistant(..., use_llm=None)` auto-enables generation when the selected
@@ -459,7 +308,5 @@ The following is the concise architecture section used in the project README:
 - Runtime search reloads the pickled index for each search call.
 - Successful LLM generations are logged; context-only fallbacks are not logged
   as query events by the RAG pipeline.
-- The generic `LLMClient` abstraction belongs to the experimental architecture
-  and is not imported by the active RAG pipeline.
 - `ingestion/index_to_vectordb.py` is kept as a compatibility entrypoint for
   the documented index-build command.

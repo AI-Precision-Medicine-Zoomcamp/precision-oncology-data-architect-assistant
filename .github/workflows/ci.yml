@@ -19,5 +19,4 @@ jobs:
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Run Deterministic Tests
       run: |
-        echo "Running pytest..."
-        # pytest tests/
+        pytest -q

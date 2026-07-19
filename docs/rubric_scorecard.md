@@ -23,7 +23,7 @@ Expected core score: 18 / 18.
 
 | Item | Expected score | Evidence |
 |---|---:|---|
-| Hybrid search | 0 | The active runtime uses lexical Minsearch. The legacy Chroma/vector path is retained for reference, but it is not part of the active app. |
+| Hybrid search | 0 | The active runtime uses lexical Minsearch. Hybrid/vector retrieval is not part of this submission. |
 | Document re-ranking | 1 | `src/retrieval/search.py` applies source-name boosting and collection diversification after over-retrieval in the `expanded` strategy. |
 | User query rewriting | 1 | `src/retrieval/search.py` expands domain-specific query terms such as NSCLC, PD-L1, biomarker, molecular report, and tumor staging. |
 
