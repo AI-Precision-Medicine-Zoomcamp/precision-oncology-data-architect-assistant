@@ -294,8 +294,7 @@ standards page are omitted for readability.
 .
 ├── app/
 │   ├── __init__.py
-│   ├── api.py                         # Empty compatibility placeholder
-│   ├── rag_pipeline.py                # Empty compatibility placeholder
+│   ├── api.py                         # FastAPI endpoints
 │   └── streamlit_app.py               # Interactive UI and feedback controls
 ├── data/
 │   ├── evaluation_questions/
@@ -303,8 +302,6 @@ standards page are omitted for readability.
 │   ├── fhir_examples/                 # Example FHIR bundles for legacy parsing
 │   ├── indexes/
 │   │   └── minsearch_index.pkl        # Active serialized retrieval index
-│   ├── knowledge_graph/
-│   │   └── placeholder.txt
 │   ├── processed/
 │   │   └── chunks.jsonl               # Active searchable chunk corpus
 │   ├── raw/
@@ -322,14 +319,15 @@ standards page are omitted for readability.
 │   ├── data_sources.md
 │   ├── evaluation.md
 │   ├── monitoring.md
-│   └── project_scope.md
+│   ├── REVIEWER_EVALUATION_GUIDE.md
+│   └── rubric_scorecard.md
 ├── evaluation/
 │   ├── ground_truth.csv
 │   ├── llm_eval.py                    # Heuristic or LLM-as-judge evaluation
 │   ├── questions.csv
-│   └── retrieval_eval.py              # Hit rate and MRR evaluation
+│   └── retrieval_eval.py              # Recall@k, MRR, and nDCG evaluation
 ├── ingestion/
-│   └── index_to_vectordb.py            # Empty legacy placeholder
+│   └── index_to_vectordb.py            # Compatibility entrypoint for index build
 ├── logs/
 │   └── queries.jsonl                  # Local query and feedback events
 ├── monitoring/
@@ -459,13 +457,12 @@ The following is the concise architecture section used in the project README:
 - The active retriever is lexical Minsearch, not the ChromaDB vector store.
 - The active RAG provider router supports `groq`, `openrouter`, and `openai`.
 - The Streamlit UI explicitly detects keys for all three active providers.
-- `run_assistant(..., use_llm=None)` currently auto-enables generation only from
-  the presence of `OPENAI_API_KEY`; the Streamlit UI avoids this limitation by
-  passing an explicit `use_llm` value.
+- `run_assistant(..., use_llm=None)` auto-enables generation when the selected
+  provider has its required key configured.
 - Runtime search reloads the pickled index for each search call.
 - Successful LLM generations are logged; context-only fallbacks are not logged
   as query events by the RAG pipeline.
 - The YAML prompt manager and generic `LLMClient` abstraction belong to the
   experimental architecture and are not imported by the active RAG pipeline.
-- `app/api.py`, `app/rag_pipeline.py`, and `ingestion/index_to_vectordb.py` are
-  currently empty placeholders.
+- `ingestion/index_to_vectordb.py` is kept as a compatibility entrypoint for
+  the documented index-build command.
