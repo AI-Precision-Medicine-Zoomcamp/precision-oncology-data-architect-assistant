@@ -139,7 +139,6 @@ flowchart LR
     Store[src.vector_store]
     Retriever[src.retriever]
     Config[src.config]
-    PromptManager[src.prompts]
     LLMClient[src.llm_client]
 
     Streamlit --> Service
@@ -174,7 +173,6 @@ flowchart LR
     Retriever --> Store
     Retriever --> Models
     Retriever --> Config
-    PromptManager --> Config
     LLMClient --> Config
 
     subgraph Current["Current application modules"]
@@ -203,7 +201,6 @@ flowchart LR
         Store
         Retriever
         Config
-        PromptManager
         LLMClient
     end
 ```
@@ -333,8 +330,6 @@ standards page are omitted for readability.
 ├── monitoring/
 │   └── telemetry.py
 ├── notebooks/                         # Reserved for analysis notebooks
-├── prompts/
-│   └── system_prompts.yaml            # Experimental reusable prompt templates
 ├── scripts/                           # Reserved for utility scripts
 ├── src/
 │   ├── api/
@@ -356,15 +351,17 @@ standards page are omitted for readability.
 │   ├── ingestion_legacy.py            # Legacy semantic ingestion orchestration
 │   ├── llm_client.py                  # Experimental multi-provider abstraction
 │   ├── models.py                      # Pydantic domain models
-│   ├── prompts.py                     # YAML prompt loader
 │   ├── retriever.py                   # Legacy semantic retriever
 │   └── vector_store.py                # Legacy ChromaDB abstraction
 ├── tests/
-│   ├── test_api_connections.py
+│   ├── test_api.py
 │   ├── test_chunker.py
 │   ├── test_evaluation_files.py
-│   ├── test_ingestion.py
+│   ├── test_llm_eval.py
 │   ├── test_manifest.py
+│   ├── test_monitoring_metrics.py
+│   ├── test_retrieval_eval.py
+│   ├── test_search.py
 │   └── test_service_interface.py
 ├── .env.example
 ├── Dockerfile
@@ -462,7 +459,7 @@ The following is the concise architecture section used in the project README:
 - Runtime search reloads the pickled index for each search call.
 - Successful LLM generations are logged; context-only fallbacks are not logged
   as query events by the RAG pipeline.
-- The YAML prompt manager and generic `LLMClient` abstraction belong to the
-  experimental architecture and are not imported by the active RAG pipeline.
+- The generic `LLMClient` abstraction belongs to the experimental architecture
+  and is not imported by the active RAG pipeline.
 - `ingestion/index_to_vectordb.py` is kept as a compatibility entrypoint for
   the documented index-build command.
