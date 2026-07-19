@@ -10,8 +10,9 @@
 | User interface | `app/streamlit_app.py` |
 | Evaluation dataset | `evaluation/ground_truth.csv`, `evaluation/questions.csv` |
 | Retrieval evaluation | `evaluation/retrieval_eval.py`, including `--compare-strategies` |
-| LLM evaluation | `evaluation/llm_eval.py`, including `--compare-modes` |
+| LLM evaluation | `evaluation/llm_eval.py`, including `--compare-modes` and `--compare-prompts` |
 | Monitoring / feedback | `monitoring/telemetry.py`, `monitoring/dashboard.py`, Streamlit feedback buttons |
 | Docker | `Dockerfile`, `docker-compose.yml` |
 | Documentation | `README.md`, `docs/` |
+| Reviewer rubric map | `docs/rubric_scorecard.md` |
 | ClawBio-compatible interface | `src/api/service.py` |

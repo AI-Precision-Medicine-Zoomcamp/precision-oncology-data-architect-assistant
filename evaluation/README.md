@@ -78,3 +78,17 @@ With an OpenAI key, an LLM judge can supplement those checks:
 ```bash
 python evaluation/llm_eval.py --use-llm --judge --limit 5
 ```
+
+Compare multiple generated-answer prompt variants:
+
+```bash
+python evaluation/llm_eval.py \
+  --use-llm \
+  --compare-prompts \
+  --out artifacts/llm_prompt_comparison.json \
+  --limit 5
+```
+
+The prompt comparison evaluates `strict_grounded`, `concise`, and
+`implementation_steps`. The application default is `strict_grounded`, which is
+the most conservative prompt for grounded, in-scope answers.

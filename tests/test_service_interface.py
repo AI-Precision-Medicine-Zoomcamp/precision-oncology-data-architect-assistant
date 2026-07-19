@@ -1,5 +1,6 @@
 from src.api import service
 from src.api.service import run_assistant, retrieve_context
+from src.rag.pipeline import DEFAULT_PROMPT_VARIANT
 
 
 def test_service_functions_exist():
@@ -14,10 +15,13 @@ def test_run_assistant_auto_enables_configured_provider(monkeypatch):
     monkeypatch.setattr(
         service,
         "answer_question",
-        lambda query, num_results: calls.append((query, num_results)) or {"answer": "llm"},
+        lambda query, num_results, prompt_variant: calls.append(
+            (query, num_results, prompt_variant)
+        )
+        or {"answer": "llm"},
     )
 
     result = service.run_assistant("EGFR", num_results=3, use_llm=None)
 
     assert result["answer"] == "llm"
-    assert calls == [("EGFR", 3)]
+    assert calls == [("EGFR", 3, DEFAULT_PROMPT_VARIANT)]

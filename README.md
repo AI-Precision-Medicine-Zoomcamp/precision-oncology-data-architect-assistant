@@ -205,9 +205,33 @@ Compare retrieved-context scoring against generated-answer scoring:
 python evaluation/llm_eval.py --compare-modes --limit 5
 ```
 
+Compare multiple generated-answer prompt approaches and report the highest
+scoring prompt variant:
+
+```bash
+python evaluation/llm_eval.py \
+  --use-llm \
+  --compare-prompts \
+  --out artifacts/llm_prompt_comparison.json \
+  --limit 5
+```
+
 The copied `evaluation/ground_truth.csv` and `evaluation/questions.csv` provide
 starter questions and expected-source labels. Treat those as smoke-test assets,
 not final quality claims.
+
+## Reviewer Scorecard
+
+The capstone rubric evidence is summarized in
+[docs/rubric_scorecard.md](docs/rubric_scorecard.md). Highlights:
+
+- retrieval evaluation compares `baseline` and `expanded` strategies, then the
+  app uses the expanded strategy by default;
+- answer evaluation can compare multiple prompt variants with
+  `--compare-prompts`; the active default is `strict_grounded`;
+- monitoring includes both feedback collection and a Streamlit dashboard with
+  six charts;
+- Docker Compose starts the API, Streamlit UI, and monitoring dashboard.
 
 ## Monitoring
 

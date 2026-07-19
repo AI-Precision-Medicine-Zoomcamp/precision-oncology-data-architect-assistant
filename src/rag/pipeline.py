@@ -10,13 +10,37 @@ from openai import OpenAI
 from monitoring.telemetry import log_query
 from src.retrieval.search import search
 
-SYSTEM_PROMPT = """You are a Precision Oncology Data Architect Assistant.
+PROMPT_VARIANTS = {
+    "strict_grounded": """You are a Precision Oncology Data Architect Assistant.
 Answer questions about representing oncology and genomics data using FHIR R4, US Core, mCODE, and Genomics Reporting.
 Stay within scope: data modeling, resource/profile selection, architecture, and example representation.
 Do not provide clinical treatment recommendations, trial matching, or variant pathogenicity interpretation.
 Use only the retrieved context. If context is insufficient, say what is missing.
 Return practical guidance and include source URLs when available.
-"""
+""",
+    "concise": """You are a Precision Oncology Data Architect Assistant.
+Answer only data-modeling questions about FHIR R4, US Core, mCODE, and Genomics Reporting.
+Use only the retrieved context, keep the answer concise, and cite source URLs when available.
+If the retrieved context is insufficient or the question asks for treatment advice, say so.
+""",
+    "implementation_steps": """You are a Precision Oncology Data Architect Assistant.
+Use only the retrieved context to answer healthcare data architecture questions.
+Structure the answer as practical implementation guidance: relevant FHIR resources or profiles, important links between resources, terminology notes, and source URLs.
+Stay out of clinical treatment recommendations, trial matching, and variant pathogenicity interpretation.
+If context is insufficient, state what evidence is missing.
+""",
+}
+
+DEFAULT_PROMPT_VARIANT = "strict_grounded"
+SYSTEM_PROMPT = PROMPT_VARIANTS[DEFAULT_PROMPT_VARIANT]
+
+
+def get_system_prompt(prompt_variant: str = DEFAULT_PROMPT_VARIANT) -> str:
+    """Return the selected system prompt variant for answer generation."""
+    if prompt_variant not in PROMPT_VARIANTS:
+        valid = ", ".join(sorted(PROMPT_VARIANTS))
+        raise ValueError(f"Unknown prompt_variant '{prompt_variant}'. Valid values: {valid}")
+    return PROMPT_VARIANTS[prompt_variant]
 
 
 def build_context(results: list[dict]) -> str:
@@ -60,7 +84,11 @@ def has_llm_key(provider: str) -> bool:
     return False
 
 
-def generate_answer_with_groq(prompt: str, model: str | None = None) -> tuple[str, Any]:
+def generate_answer_with_groq(
+    prompt: str,
+    model: str | None = None,
+    system_prompt: str = SYSTEM_PROMPT,
+) -> tuple[str, Any]:
     api_key = os.getenv("GROQ_API_KEY")
 
     if not api_key:
@@ -78,7 +106,7 @@ def generate_answer_with_groq(prompt: str, model: str | None = None) -> tuple[st
         messages=[
             {
                 "role": "system",
-                "content": SYSTEM_PROMPT,
+                "content": system_prompt,
             },
             {
                 "role": "user",
@@ -91,7 +119,11 @@ def generate_answer_with_groq(prompt: str, model: str | None = None) -> tuple[st
     return response.choices[0].message.content, getattr(response, "usage", None)
 
 
-def generate_answer_with_openrouter(prompt: str, model: str | None = None) -> tuple[str, Any]:
+def generate_answer_with_openrouter(
+    prompt: str,
+    model: str | None = None,
+    system_prompt: str = SYSTEM_PROMPT,
+) -> tuple[str, Any]:
     api_key = os.getenv("OPENROUTER_API_KEY")
 
     if not api_key:
@@ -109,7 +141,7 @@ def generate_answer_with_openrouter(prompt: str, model: str | None = None) -> tu
         messages=[
             {
                 "role": "system",
-                "content": SYSTEM_PROMPT,
+                "content": system_prompt,
             },
             {
                 "role": "user",
@@ -122,7 +154,11 @@ def generate_answer_with_openrouter(prompt: str, model: str | None = None) -> tu
     return response.choices[0].message.content, getattr(response, "usage", None)
 
 
-def generate_answer_with_openai(prompt: str, model: str | None = None) -> tuple[str, Any]:
+def generate_answer_with_openai(
+    prompt: str,
+    model: str | None = None,
+    system_prompt: str = SYSTEM_PROMPT,
+) -> tuple[str, Any]:
     api_key = os.getenv("OPENAI_API_KEY")
 
     if not api_key:
@@ -137,7 +173,7 @@ def generate_answer_with_openai(prompt: str, model: str | None = None) -> tuple[
         messages=[
             {
                 "role": "system",
-                "content": SYSTEM_PROMPT,
+                "content": system_prompt,
             },
             {
                 "role": "user",
@@ -150,19 +186,36 @@ def generate_answer_with_openai(prompt: str, model: str | None = None) -> tuple[
     return response.choices[0].message.content, getattr(response, "usage", None)
 
 
-def generate_answer(prompt: str, model: str | None = None) -> tuple[str, Any, str]:
+def generate_answer(
+    prompt: str,
+    model: str | None = None,
+    prompt_variant: str = DEFAULT_PROMPT_VARIANT,
+) -> tuple[str, Any, str]:
     provider = get_llm_provider()
+    system_prompt = get_system_prompt(prompt_variant)
 
     if provider == "groq":
-        answer, usage = generate_answer_with_groq(prompt, model=model)
+        answer, usage = generate_answer_with_groq(
+            prompt,
+            model=model,
+            system_prompt=system_prompt,
+        )
         return answer, usage, os.getenv("GROQ_MODEL", model or "llama-3.1-8b-instant")
 
     if provider == "openrouter":
-        answer, usage = generate_answer_with_openrouter(prompt, model=model)
+        answer, usage = generate_answer_with_openrouter(
+            prompt,
+            model=model,
+            system_prompt=system_prompt,
+        )
         return answer, usage, os.getenv("OPENROUTER_MODEL", model or "meta-llama/llama-3.1-8b-instruct")
 
     if provider == "openai":
-        answer, usage = generate_answer_with_openai(prompt, model=model)
+        answer, usage = generate_answer_with_openai(
+            prompt,
+            model=model,
+            system_prompt=system_prompt,
+        )
         return answer, usage, os.getenv("OPENAI_MODEL", model or "gpt-4o-mini")
 
     raise ValueError(f"Unsupported LLM_PROVIDER: {provider}")
@@ -173,8 +226,10 @@ def answer_question(
     num_results: int = 5,
     model: str | None = None,
     log: bool = True,
+    prompt_variant: str = DEFAULT_PROMPT_VARIANT,
 ) -> dict[str, Any]:
     load_dotenv(override=True)
+    get_system_prompt(prompt_variant)
 
     results = search(query, num_results=num_results)
     context = build_context(results)
@@ -183,7 +238,11 @@ def answer_question(
     provider = get_llm_provider()
 
     if not has_llm_key(provider):
-        payload = answer_without_llm(query=query, num_results=num_results)
+        payload = answer_without_llm(
+            query=query,
+            num_results=num_results,
+            prompt_variant=prompt_variant,
+        )
         payload["answer"] = (
             f"LLM provider '{provider}' is selected, but the API key is not configured. "
             "Showing retrieved context only."
@@ -191,9 +250,17 @@ def answer_question(
         return payload
 
     try:
-        answer, usage, used_model = generate_answer(prompt, model=model)
+        answer, usage, used_model = generate_answer(
+            prompt,
+            model=model,
+            prompt_variant=prompt_variant,
+        )
     except Exception as exc:
-        payload = answer_without_llm(query=query, num_results=num_results)
+        payload = answer_without_llm(
+            query=query,
+            num_results=num_results,
+            prompt_variant=prompt_variant,
+        )
         payload["answer"] = (
             f"LLM generation failed with provider '{provider}': {exc}\n\n"
             "Showing retrieved context only."
@@ -207,6 +274,7 @@ def answer_question(
         "usage": usage,
         "model": used_model,
         "provider": provider,
+        "prompt_variant": prompt_variant,
     }
 
     if log:
@@ -222,8 +290,13 @@ def answer_question(
     return payload
 
 
-def answer_without_llm(query: str, num_results: int = 5) -> dict[str, Any]:
+def answer_without_llm(
+    query: str,
+    num_results: int = 5,
+    prompt_variant: str = DEFAULT_PROMPT_VARIANT,
+) -> dict[str, Any]:
     """Fallback mode useful when no LLM API key is set."""
+    get_system_prompt(prompt_variant)
     results = search(query, num_results=num_results)
 
     return {
@@ -233,4 +306,5 @@ def answer_without_llm(query: str, num_results: int = 5) -> dict[str, Any]:
         "usage": None,
         "model": None,
         "provider": None,
+        "prompt_variant": prompt_variant,
     }

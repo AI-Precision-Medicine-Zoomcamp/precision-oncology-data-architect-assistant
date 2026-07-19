@@ -1,12 +1,14 @@
 """LLM answer evaluation with a simple rubric.
 
-This script can run in two modes:
+This script can run in three modes:
 1. heuristic mode (default): checks if answer mentions key terms from expected answer.
 2. llm judge mode: set --judge and OPENAI_API_KEY to score answers with an LLM.
+3. prompt comparison: evaluate multiple prompt variants and report the best one.
 
 Usage:
     python evaluation/llm_eval.py --questions evaluation/ground_truth.csv --limit 5
     python evaluation/llm_eval.py --use-llm --judge --limit 5
+    python evaluation/llm_eval.py --use-llm --compare-prompts --limit 5
 """
 from __future__ import annotations
 
@@ -27,6 +29,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 from src.api.service import run_assistant
+from src.rag.pipeline import DEFAULT_PROMPT_VARIANT, PROMPT_VARIANTS
 
 
 def keywords(text: str) -> set[str]:
@@ -84,11 +87,21 @@ def evaluation_text(rag: dict, use_llm: bool) -> str:
     )
 
 
-def evaluate_rows(rows: list[dict], use_llm: bool, judge: bool, judge_model: str) -> dict:
+def evaluate_rows(
+    rows: list[dict],
+    use_llm: bool,
+    judge: bool,
+    judge_model: str,
+    prompt_variant: str = DEFAULT_PROMPT_VARIANT,
+) -> dict:
     client = OpenAI() if judge else None
     results = []
     for row in rows:
-        rag = run_assistant(row["question"], use_llm=use_llm)
+        rag = run_assistant(
+            row["question"],
+            use_llm=use_llm,
+            prompt_variant=prompt_variant,
+        )
         answer = rag["answer"]
         text_to_score = evaluation_text(rag, use_llm)
         if judge and client:
@@ -120,8 +133,46 @@ def evaluate_rows(rows: list[dict], use_llm: bool, judge: bool, judge_model: str
         "num_questions": len(results),
         "use_llm": use_llm,
         "judge_mode": judge,
+        "prompt_variant": prompt_variant,
         "average_score": mean(numeric_scores) if numeric_scores else None,
         "results": results,
+    }
+
+
+def compare_prompt_variants(
+    rows: list[dict],
+    use_llm: bool,
+    judge: bool,
+    judge_model: str,
+    variants: list[str],
+) -> dict:
+    """Evaluate several prompt variants and select the highest-scoring one."""
+    unknown = sorted(set(variants).difference(PROMPT_VARIANTS))
+    if unknown:
+        valid = ", ".join(sorted(PROMPT_VARIANTS))
+        raise ValueError(f"Unknown prompt variants {unknown}. Valid values: {valid}")
+
+    runs = {
+        variant: evaluate_rows(
+            rows,
+            use_llm=use_llm,
+            judge=judge,
+            judge_model=judge_model,
+            prompt_variant=variant,
+        )
+        for variant in variants
+    }
+    best_variant = max(
+        runs,
+        key=lambda variant: runs[variant]["average_score"]
+        if runs[variant]["average_score"] is not None
+        else -1,
+    )
+    return {
+        "comparison_type": "prompt_variant",
+        "best_prompt_variant": best_variant,
+        "active_default_prompt_variant": DEFAULT_PROMPT_VARIANT,
+        "variants": runs,
     }
 
 
@@ -135,6 +186,17 @@ def main() -> None:
     parser.add_argument("--model", default=os.getenv("OPENAI_MODEL", "gpt-4o-mini"))
     parser.add_argument("--judge-model", default=os.getenv("OPENAI_JUDGE_MODEL", "gpt-4o-mini"))
     parser.add_argument(
+        "--prompt-variant",
+        choices=sorted(PROMPT_VARIANTS),
+        default=DEFAULT_PROMPT_VARIANT,
+        help="Prompt variant used for a single generated-answer run.",
+    )
+    parser.add_argument(
+        "--compare-prompts",
+        action="store_true",
+        help="Compare all prompt variants and report the highest-scoring one.",
+    )
+    parser.add_argument(
         "--compare-modes",
         action="store_true",
         help="Compare retrieval-context scoring with generated-answer scoring.",
@@ -146,10 +208,30 @@ def main() -> None:
     if args.limit:
         rows = rows[: args.limit]
 
-    if args.compare_modes:
+    if args.compare_prompts:
+        report = compare_prompt_variants(
+            rows,
+            use_llm=args.use_llm,
+            judge=args.judge,
+            judge_model=args.judge_model,
+            variants=sorted(PROMPT_VARIANTS),
+        )
+    elif args.compare_modes:
         modes = {
-            "retrieved_context": evaluate_rows(rows, use_llm=False, judge=args.judge, judge_model=args.judge_model),
-            "generated_answer": evaluate_rows(rows, use_llm=True, judge=args.judge, judge_model=args.judge_model),
+            "retrieved_context": evaluate_rows(
+                rows,
+                use_llm=False,
+                judge=args.judge,
+                judge_model=args.judge_model,
+                prompt_variant=args.prompt_variant,
+            ),
+            "generated_answer": evaluate_rows(
+                rows,
+                use_llm=True,
+                judge=args.judge,
+                judge_model=args.judge_model,
+                prompt_variant=args.prompt_variant,
+            ),
         }
         best_mode = max(
             modes,
@@ -168,10 +250,14 @@ def main() -> None:
             use_llm=args.use_llm,
             judge=args.judge,
             judge_model=args.judge_model,
+            prompt_variant=args.prompt_variant,
         )
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, indent=2), encoding="utf-8")
-    if args.compare_modes:
+    if args.compare_prompts:
+        print(f"Best prompt variant: {report['best_prompt_variant']}")
+        print(f"Active default prompt variant: {report['active_default_prompt_variant']}")
+    elif args.compare_modes:
         print(f"Best mode: {report['best_mode']}")
     else:
         print(f"Questions: {report['num_questions']}")

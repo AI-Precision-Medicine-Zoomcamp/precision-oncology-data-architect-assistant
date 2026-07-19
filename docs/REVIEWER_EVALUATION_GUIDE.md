@@ -62,12 +62,12 @@ PYTHONPATH=. streamlit run monitoring/dashboard.py --server.port 8502
 | Automated ingestion | `src/ingestion/download_sources.py`, `src/ingestion/ingest_documents.py` | Run the ingestion commands and confirm raw documents and JSONL chunks are produced. |
 | Chunking | `src/ingestion/ingest_documents.py` | Confirm documents are split into chunk records with source metadata. |
 | Retrieval | `src/retrieval/build_index.py`, `src/retrieval/search.py` | Run `/search` or the retrieval evaluation and confirm relevant chunks are returned. |
-| LLM integration | `src/rag/pipeline.py`, `.env.example` | Confirm support for Groq, OpenRouter, and OpenAI with retrieval-only fallback. |
+| LLM integration | `src/rag/pipeline.py`, `.env.example` | Confirm support for Groq, OpenRouter, and OpenAI with retrieval-only fallback and named prompt variants. |
 | Backend API | `app/api.py` | Start FastAPI and test `GET /health`, `POST /search`, and `POST /answer`. |
 | Frontend UI | `app/streamlit_app.py` | Start Streamlit and submit a standards-related question. |
 | Evaluation dataset | `evaluation/ground_truth.csv`, `evaluation/questions.csv` | Confirm the project includes reusable question fixtures and expected evidence labels. |
 | Retrieval evaluation | `evaluation/retrieval_eval.py` | Run the retrieval evaluation command in the README. |
-| Answer evaluation | `evaluation/llm_eval.py` | Run offline smoke evaluation, or LLM mode if keys are available. |
+| Answer evaluation | `evaluation/llm_eval.py` | Run offline smoke evaluation, LLM mode if keys are available, or `--compare-prompts` to compare answer prompt approaches. |
 | Monitoring / feedback | `monitoring/telemetry.py`, `monitoring/dashboard.py` | Submit UI feedback and inspect the dashboard charts. |
 | Docker reproducibility | `Dockerfile`, `docker-compose.yml` | Run `docker compose config` and `docker compose build`. |
 | Documentation | `README.md`, `docs/architecture.md`, `docs/evaluation.md`, `docs/monitoring.md`, `docs/course_requirements.md` | Confirm setup, architecture, evaluation, monitoring, and requirement coverage are documented. |
@@ -149,6 +149,22 @@ Compare context-only and generated-answer modes:
 
 ```bash
 python evaluation/llm_eval.py --compare-modes --limit 5
+```
+
+Compare generated-answer prompt variants:
+
+```bash
+python evaluation/llm_eval.py \
+  --use-llm \
+  --compare-prompts \
+  --out artifacts/llm_prompt_comparison.json \
+  --limit 5
+```
+
+Rubric scorecard:
+
+```text
+docs/rubric_scorecard.md
 ```
 
 ## Quality Gates

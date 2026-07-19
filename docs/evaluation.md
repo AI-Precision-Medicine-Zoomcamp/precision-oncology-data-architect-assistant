@@ -68,6 +68,22 @@ Compare retrieved-context scoring against generated-answer scoring:
 python evaluation/llm_eval.py --compare-modes --limit 5
 ```
 
+Compare multiple generated-answer prompt variants:
+
+```bash
+python evaluation/llm_eval.py \
+  --use-llm \
+  --compare-prompts \
+  --out artifacts/llm_prompt_comparison.json \
+  --limit 5
+```
+
+The prompt comparison evaluates the named variants in `src/rag/pipeline.py`:
+
+- `strict_grounded`: the active default used by the app
+- `concise`: shorter answer style with the same grounding and safety rules
+- `implementation_steps`: implementation-oriented answer structure
+
 With an OpenAI key, an LLM judge can be used:
 
 ```bash
@@ -77,6 +93,7 @@ python evaluation/llm_eval.py --use-llm --judge --limit 5
 Output:
 
 - `evaluation/llm_eval_results.json`
+- `artifacts/llm_prompt_comparison.json`
 
 ## Evaluation Questions
 
